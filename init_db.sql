@@ -212,3 +212,12 @@ PRINT '1. Update password hashes with real bcrypt/argon2 hashes (not plain text)
 PRINT '2. Configure application.properties with correct connection string';
 PRINT '3. Review and adjust field lengths based on your business requirements';
 GO
+
+-- ===================================================================
+-- Update 
+-- ===================================================================
+UPDATE USERS
+SET ROLE = 'ADMIN',
+    UPDATED_AT = GETDATE()
+WHERE EMAIL = 'thanhnhandz606@gmail.com'
+  AND ROLE = 'CUSTOMER';
