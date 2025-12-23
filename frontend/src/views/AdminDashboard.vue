@@ -14,22 +14,22 @@
           <span class="nav-icon">📊</span>
           <span class="nav-text">Dashboard</span>
         </a>
-        <a href="#products" class="nav-item">
+        <router-link to="/admin/products" class="nav-item">
           <span class="nav-icon">📦</span>
           <span class="nav-text">Sản phẩm</span>
-        </a>
+        </router-link>
         <router-link to="/admin/categories" class="nav-item">
           <span class="nav-icon">🏷️</span>
           <span class="nav-text">Danh mục</span>
         </router-link>
-        <a href="#orders" class="nav-item">
+        <router-link to="/admin/orders" class="nav-item">
           <span class="nav-icon">🛍️</span>
           <span class="nav-text">Đơn hàng</span>
-        </a>
-        <a href="#customers" class="nav-item">
+        </router-link>
+        <router-link to="/admin/customers" class="nav-item">
           <span class="nav-icon">👥</span>
           <span class="nav-text">Khách hàng</span>
-        </a>
+        </router-link>
         <a href="#analytics" class="nav-item">
           <span class="nav-icon">📈</span>
           <span class="nav-text">Thống kê</span>

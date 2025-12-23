@@ -10,8 +10,7 @@
         <router-link v-if="isAdmin" to="/admin" class="nav-link admin-link">
           📊 Dashboard
         </router-link>
-        <router-link v-if="isAdmin" to="/admin/categories" class="nav-link">Quản Lý</router-link>
-        <router-link v-if="isAuthenticated" to="/orders" class="nav-link">Đơn hàng</router-link>
+          <router-link v-if="isAuthenticated" to="/orders" class="nav-link">Đơn hàng</router-link>
         <router-link to="/cart" class="nav-link cart-link">
           🛒 Giỏ hàng
           <span v-if="cartCount > 0" class="badge">{{ cartCount }}</span>

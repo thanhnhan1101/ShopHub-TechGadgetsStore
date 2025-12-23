@@ -14,14 +14,14 @@
           <span class="nav-icon">📊</span>
           <span class="nav-text">Dashboard</span>
         </router-link>
-        <router-link to="/admin/products" class="nav-item">
+        <a href="#products" class="nav-item active">
           <span class="nav-icon">📦</span>
           <span class="nav-text">Sản phẩm</span>
-        </router-link>
-        <a href="#categories" class="nav-item active">
+        </a>
+        <router-link to="/admin/categories" class="nav-item">
           <span class="nav-icon">🏷️</span>
           <span class="nav-text">Danh mục</span>
-        </a>
+        </router-link>
         <router-link to="/admin/orders" class="nav-item">
           <span class="nav-icon">🛍️</span>
           <span class="nav-text">Đơn hàng</span>
@@ -57,13 +57,13 @@
       <!-- Top Bar -->
       <header class="top-bar">
         <div class="page-title">
-          <h1>Quản Lý Danh Mục</h1>
-          <p>Quản lý danh mục sản phẩm</p>
+          <h1>Quản Lý Sản Phẩm</h1>
+          <p>Quản lý toàn bộ sản phẩm trong cửa hàng</p>
         </div>
         <div class="top-bar-actions">
           <button @click="showCreateModal = true" class="btn-primary">
             <span>➕</span>
-            <span>Thêm Danh Mục</span>
+            <span>Thêm Sản Phẩm</span>
           </button>
         </div>
       </header>
@@ -71,10 +71,10 @@
       <!-- Stats Cards -->
       <section class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon categories">🏷️</div>
+          <div class="stat-icon products">📦</div>
           <div class="stat-content">
-            <div class="stat-label">Tổng danh mục</div>
-            <div class="stat-value">{{ categories.length }}</div>
+            <div class="stat-label">Tổng sản phẩm</div>
+            <div class="stat-value">{{ products.length }}</div>
           </div>
         </div>
 
@@ -82,38 +82,44 @@
           <div class="stat-icon active">✅</div>
           <div class="stat-content">
             <div class="stat-label">Đang hoạt động</div>
-            <div class="stat-value">{{ activeCategories }}</div>
+            <div class="stat-value">{{ activeProducts }}</div>
           </div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon inactive">🚫</div>
+          <div class="stat-icon low-stock">⚠️</div>
           <div class="stat-content">
-            <div class="stat-label">Ngừng hoạt động</div>
-            <div class="stat-value">{{ inactiveCategories }}</div>
+            <div class="stat-label">Sắp hết hàng</div>
+            <div class="stat-value">{{ lowStockProducts }}</div>
           </div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon products">📦</div>
+          <div class="stat-icon revenue">💰</div>
           <div class="stat-content">
-            <div class="stat-label">Tổng sản phẩm</div>
-            <div class="stat-value">{{ totalProducts }}</div>
+            <div class="stat-label">Tổng giá trị</div>
+            <div class="stat-value">{{ formatCurrency(totalValue) }}</div>
           </div>
         </div>
       </section>
 
-      <!-- Category Table -->
+      <!-- Products Table -->
       <section class="table-section">
         <div class="table-header">
-          <h2>Danh Sách Danh Mục</h2>
+          <h2>Danh Sách Sản Phẩm</h2>
           <div class="table-actions">
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="🔍 Tìm kiếm danh mục..."
+              placeholder="🔍 Tìm kiếm sản phẩm..."
               class="search-input"
             />
+            <select v-model="filterCategory" class="filter-select">
+              <option value="">Tất cả danh mục</option>
+              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                {{ cat.name }}
+              </option>
+            </select>
           </div>
         </div>
 
@@ -121,31 +127,48 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Tên Danh Mục</th>
-                <th>Mô Tả</th>
-                <th>Trạng Thái</th>
-                <th>Ngày Tạo</th>
-                <th>Thao Tác</th>
+                <th>Hình ảnh</th>
+                <th>Tên sản phẩm</th>
+                <th>Danh mục</th>
+                <th>Giá</th>
+                <th>Tồn kho</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="category in filteredCategories" :key="category.id">
-                <td>{{ category.id }}</td>
-                <td>{{ category.name }}</td>
-                <td>{{ category.description }}</td>
+              <tr v-for="product in filteredProducts" :key="product.id">
                 <td>
-                  <span :class="['status-badge', category.isActive ? 'active' : 'inactive']">
-                    {{ category.isActive ? 'Hoạt động' : 'Ngừng' }}
+                  <img :src="product.imageUrl" :alt="product.name" class="product-image" />
+                </td>
+                <td>
+                  <div class="product-info">
+                    <div class="product-name">{{ product.name }}</div>
+                    <div class="product-desc">{{ truncateText(product.description, 50) }}</div>
+                  </div>
+                </td>
+                <td>
+                  <span class="category-badge">{{ getCategoryName(product.categoryId) }}</span>
+                </td>
+                <td>
+                  <div class="price-info">{{ formatCurrency(product.price) }}</div>
+                </td>
+                <td>
+                  <span :class="['stock-badge', getStockClass(product.stock)]">
+                    {{ product.stock }} 📦
                   </span>
                 </td>
-                <td>{{ formatDate(category.createdAt) }}</td>
+                <td>
+                  <span :class="['status-badge', product.isActive ? 'active' : 'inactive']">
+                    {{ product.isActive ? 'Hoạt động' : 'Ngừng' }}
+                  </span>
+                </td>
                 <td>
                   <div class="action-buttons">
-                    <button @click="editCategory(category)" class="btn-icon" title="Chỉnh sửa">
+                    <button @click="editProduct(product)" class="btn-icon" title="Chỉnh sửa">
                       ✏️
                     </button>
-                    <button @click="deleteCategory(category.id)" class="btn-icon danger" title="Xóa">
+                    <button @click="deleteProduct(product.id)" class="btn-icon danger" title="Xóa">
                       🗑️
                     </button>
                   </div>
@@ -157,7 +180,7 @@
 
         <div class="table-footer">
           <div class="showing-info">
-            Hiển thị {{ filteredCategories.length }} danh mục
+            Hiển thị {{ filteredProducts.length }} sản phẩm
           </div>
         </div>
       </section>
@@ -166,19 +189,38 @@
     <!-- Create/Edit Modal -->
     <div v-if="showCreateModal || showEditModal" class="modal-overlay" @click="closeModal">
       <div class="modal" @click.stop>
-        <h2>{{ showEditModal ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục Mới' }}</h2>
-        <form @submit.prevent="saveCategory">
+        <h2>{{ showEditModal ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới' }}</h2>
+        <form @submit.prevent="saveProduct">
           <div class="form-group">
-            <label>Tên Danh Mục *</label>
-            <input v-model="form.name" type="text" required placeholder="VD: Smartphones">
+            <label>Tên sản phẩm *</label>
+            <input v-model="form.name" type="text" required placeholder="VD: iPhone 15 Pro Max">
           </div>
           <div class="form-group">
-            <label>Mô Tả *</label>
-            <textarea v-model="form.description" required placeholder="Mô tả về danh mục..."></textarea>
+            <label>Mô tả *</label>
+            <textarea v-model="form.description" required placeholder="Mô tả chi tiết về sản phẩm..."></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Giá (VNĐ) *</label>
+              <input v-model.number="form.price" type="number" required placeholder="35000000">
+            </div>
+            <div class="form-group">
+              <label>Tồn kho *</label>
+              <input v-model.number="form.stock" type="number" required placeholder="100">
+            </div>
           </div>
           <div class="form-group">
-            <label>URL Hình Ảnh</label>
-            <input v-model="form.imageUrl" type="text" placeholder="https://example.com/image.jpg">
+            <label>Danh mục *</label>
+            <select v-model="form.categoryId" required>
+              <option value="">Chọn danh mục</option>
+              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                {{ cat.name }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>URL hình ảnh *</label>
+            <input v-model="form.imageUrl" type="text" required placeholder="https://example.com/image.jpg">
           </div>
           <div class="form-group checkbox">
             <label>
@@ -188,7 +230,9 @@
           </div>
           <div class="form-actions">
             <button type="button" @click="closeModal" class="btn-cancel">Hủy</button>
-            <button type="submit" class="btn-primary">{{ showEditModal ? 'Cập Nhật' : 'Tạo Mới' }}</button>
+            <button type="submit" class="btn-primary">
+              {{ showEditModal ? 'Cập Nhật' : 'Tạo Mới' }}
+            </button>
           </div>
         </form>
       </div>
@@ -205,42 +249,46 @@ import api from '../services/api'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const categories = ref([])
 const products = ref([])
+const categories = ref([])
 const searchQuery = ref('')
+const filterCategory = ref('')
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const form = ref({
   id: null,
   name: '',
   description: '',
+  price: 0,
+  stock: 0,
+  categoryId: '',
   imageUrl: '',
   isActive: true
 })
 
-const activeCategories = computed(() => categories.value.filter(c => c.isActive).length)
-const inactiveCategories = computed(() => categories.value.filter(c => !c.isActive).length)
-const totalProducts = computed(() => products.value.length)
+const activeProducts = computed(() => products.value.filter(p => p.isActive).length)
+const lowStockProducts = computed(() => products.value.filter(p => p.stock < 10).length)
+const totalValue = computed(() => 
+  products.value.reduce((sum, p) => sum + (p.price * p.stock), 0)
+)
 
-const filteredCategories = computed(() => {
-  if (!searchQuery.value) return categories.value
-  
-  const query = searchQuery.value.toLowerCase()
-  return categories.value.filter(c => 
-    c.name.toLowerCase().includes(query) || 
-    c.description.toLowerCase().includes(query)
-  )
-})
+const filteredProducts = computed(() => {
+  let filtered = products.value
 
-const fetchCategories = async () => {
-  try {
-    const response = await api.getCategories()
-    categories.value = response.data
-  } catch (error) {
-    console.error('Lỗi khi tải danh mục:', error)
-    alert('Không thể tải danh sách danh mục!')
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(p => 
+      p.name.toLowerCase().includes(query) || 
+      p.description.toLowerCase().includes(query)
+    )
   }
-}
+
+  if (filterCategory.value) {
+    filtered = filtered.filter(p => p.categoryId === filterCategory.value)
+  }
+
+  return filtered
+})
 
 const fetchProducts = async () => {
   try {
@@ -248,41 +296,51 @@ const fetchProducts = async () => {
     products.value = response.data
   } catch (error) {
     console.error('Lỗi khi tải sản phẩm:', error)
+    alert('Không thể tải danh sách sản phẩm!')
   }
 }
 
-const saveCategory = async () => {
+const fetchCategories = async () => {
+  try {
+    const response = await api.getCategories()
+    categories.value = response.data.filter(c => c.isActive)
+  } catch (error) {
+    console.error('Lỗi khi tải danh mục:', error)
+  }
+}
+
+const saveProduct = async () => {
   try {
     if (showEditModal.value) {
-      await api.updateCategory(form.value.id, form.value)
-      alert('Cập nhật danh mục thành công!')
+      await api.updateProduct(form.value.id, form.value)
+      alert('Cập nhật sản phẩm thành công!')
     } else {
-      await api.createCategory(form.value)
-      alert('Thêm danh mục mới thành công!')
+      await api.createProduct(form.value)
+      alert('Thêm sản phẩm mới thành công!')
     }
     closeModal()
-    fetchCategories()
+    fetchProducts()
   } catch (error) {
-    console.error('Lỗi khi lưu danh mục:', error)
-    alert('Không thể lưu danh mục!')
+    console.error('Lỗi khi lưu sản phẩm:', error)
+    alert(error.response?.data?.message || 'Không thể lưu sản phẩm!')
   }
 }
 
-const editCategory = (category) => {
-  form.value = { ...category }
+const editProduct = (product) => {
+  form.value = { ...product }
   showEditModal.value = true
 }
 
-const deleteCategory = async (id) => {
-  if (!confirm('Bạn có chắc muốn xóa danh mục này?')) return
+const deleteProduct = async (id) => {
+  if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return
   
   try {
-    await api.deleteCategory(id)
-    alert('Xóa danh mục thành công!')
-    fetchCategories()
+    await api.deleteProduct(id)
+    alert('Xóa sản phẩm thành công!')
+    fetchProducts()
   } catch (error) {
-    console.error('Lỗi khi xóa danh mục:', error)
-    alert('Không thể xóa danh mục!')
+    console.error('Lỗi khi xóa sản phẩm:', error)
+    alert('Không thể xóa sản phẩm!')
   }
 }
 
@@ -293,14 +351,35 @@ const closeModal = () => {
     id: null,
     name: '',
     description: '',
+    price: 0,
+    stock: 0,
+    categoryId: '',
     imageUrl: '',
     isActive: true
   }
 }
 
-const formatDate = (dateString) => {
-  if (!dateString) return ''
-  return new Date(dateString).toLocaleDateString('vi-VN')
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(value)
+}
+
+const getCategoryName = (categoryId) => {
+  const category = categories.value.find(c => c.id === categoryId)
+  return category ? category.name : 'N/A'
+}
+
+const getStockClass = (stock) => {
+  if (stock === 0) return 'out-of-stock'
+  if (stock < 10) return 'low-stock'
+  return 'in-stock'
+}
+
+const truncateText = (text, length) => {
+  if (!text) return ''
+  return text.length > length ? text.substring(0, length) + '...' : text
 }
 
 const handleLogout = () => {
@@ -309,19 +388,19 @@ const handleLogout = () => {
 }
 
 onMounted(() => {
-  fetchCategories()
   fetchProducts()
+  fetchCategories()
 })
 </script>
 
 <style scoped>
+/* Shared Admin Layout Styles */
 .admin-dashboard {
   display: flex;
   min-height: 100vh;
   background: #f5f7fa;
 }
 
-/* Sidebar */
 .sidebar {
   width: 280px;
   background: white;
@@ -412,14 +491,12 @@ onMounted(() => {
   color: #ff6b6b;
 }
 
-/* Main Content */
 .main-content {
   flex: 1;
   margin-left: 280px;
   padding: 30px;
 }
 
-/* Top Bar */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -465,7 +542,6 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-/* Stats Grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -498,16 +574,16 @@ onMounted(() => {
   font-size: 28px;
 }
 
-.stat-icon.categories {
+.stat-icon.revenue {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.stat-icon.active {
-  background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+.stat-icon.orders {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-.stat-icon.inactive {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+.stat-icon.customers {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 
 .stat-icon.products {
@@ -531,7 +607,6 @@ onMounted(() => {
   color: #2c3e50;
 }
 
-/* Table */
 .table-section {
   background: white;
   padding: 24px;
@@ -618,6 +693,26 @@ onMounted(() => {
   letter-spacing: 0.5px;
 }
 
+.status-badge.completed {
+  background: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.status-badge.processing {
+  background: #fff3bf;
+  color: #e67700;
+}
+
+.status-badge.shipping {
+  background: #d0ebff;
+  color: #1971c2;
+}
+
+.status-badge.cancelled {
+  background: #ffe3e3;
+  color: #c92a2a;
+}
+
 .status-badge.active {
   background: #d3f9d8;
   color: #2b8a3e;
@@ -665,7 +760,6 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -715,6 +809,8 @@ onMounted(() => {
 }
 
 .form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select,
 .form-group textarea {
   width: 100%;
   padding: 14px 18px;
@@ -726,7 +822,8 @@ onMounted(() => {
   font-family: inherit;
 }
 
-.form-group input[type="text"]:focus,
+.form-group input:focus,
+.form-group select:focus,
 .form-group textarea:focus {
   outline: none;
   border-color: #667eea;
@@ -778,7 +875,6 @@ onMounted(() => {
   border-color: #adb5bd;
 }
 
-/* Responsive */
 @media (max-width: 1024px) {
   .sidebar {
     width: 80px;
@@ -834,5 +930,128 @@ onMounted(() => {
     align-items: flex-start;
     gap: 16px;
   }
+
+  .table-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+}
+
+/* Product Management Specific Styles */
+.product-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.product-name {
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.product-desc {
+  color: #7f8c8d;
+  font-size: 13px;
+}
+
+.category-badge {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  color: #1565c0;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.price-info {
+  font-weight: 700;
+  color: #667eea;
+  font-size: 15px;
+}
+
+.stock-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.stock-badge.in-stock {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  color: #155724;
+}
+
+.stock-badge.low-stock {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  color: #856404;
+}
+
+.stock-badge.out-of-stock {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  color: #721c24;
+}
+
+.stat-icon.active {
+  background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+}
+
+.stat-icon.low-stock {
+  background: linear-gradient(135deg, #ffd43b 0%, #fab005 100%);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group select {
+  width: 100%;
+  padding: 14px 18px;
+  border: 2px solid #e0e6ed;
+  border-radius: 12px;
+  font-size: 15px;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  background: white;
+  cursor: pointer;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.filter-select {
+  padding: 12px 20px;
+  border: 2px solid #e8ecef;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  background: white;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
 }
 </style>

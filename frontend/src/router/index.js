@@ -6,6 +6,9 @@ import Cart from '../views/Cart.vue'
 import Checkout from '../views/Checkout.vue'
 import Orders from '../views/Orders.vue'
 import CategoryManagement from '../views/CategoryManagement.vue'
+import ProductManagement from '../views/ProductManagement.vue'
+import OrderManagement from '../views/OrderManagement.vue'
+import CustomerManagement from '../views/CustomerManagement.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
@@ -61,6 +64,24 @@ const routes = [
     path: '/admin/categories',
     name: 'CategoryManagement',
     component: CategoryManagement,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/products',
+    name: 'ProductManagement',
+    component: ProductManagement,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/orders',
+    name: 'OrderManagement',
+    component: OrderManagement,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/customers',
+    name: 'CustomerManagement',
+    component: CustomerManagement,
     meta: { requiresAuth: true, requiresAdmin: true }
   }
 ]
