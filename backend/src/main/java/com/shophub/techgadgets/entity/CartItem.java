@@ -1,5 +1,6 @@
 package com.shophub.techgadgets.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
         @Index(name = "IDX_CART_PRODUCT", columnList = "PRODUCT_ID")
     }
 )
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class CartItem {
 
     @Id

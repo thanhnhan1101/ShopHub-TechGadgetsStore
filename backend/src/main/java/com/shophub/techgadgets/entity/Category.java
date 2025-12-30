@@ -1,5 +1,6 @@
 package com.shophub.techgadgets.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -7,6 +8,7 @@ import java.time.LocalDateTime;
 @Table(name = "CATEGORIES", indexes = {
     @Index(name = "IDX_CATEGORIES_ACTIVE", columnList = "IS_ACTIVE")
 })
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Category {
 
     @Id

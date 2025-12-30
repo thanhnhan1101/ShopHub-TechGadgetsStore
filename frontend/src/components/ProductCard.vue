@@ -9,7 +9,7 @@
       <h3 class="product-name">{{ product.name }}</h3>
       <p class="product-description">{{ truncatedDescription }}</p>
       <div class="product-footer">
-        <span class="product-price">${{ product.price }}</span>
+        <span class="product-price">{{ formatPrice(product.price) }}</span>
         <span class="product-stock" :class="stockClass">
           {{ stockText }}
         </span>
@@ -19,7 +19,7 @@
         @click.stop="addToCart"
         :disabled="product.stock === 0"
       >
-        Add to Cart
+        Thêm vào giỏ
       </button>
     </div>
   </div>
@@ -29,6 +29,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
+import { useAuthStore } from '../stores/auth'
 
 export default {
   name: 'ProductCard',
@@ -41,6 +42,7 @@ export default {
   setup(props) {
     const router = useRouter()
     const cartStore = useCartStore()
+    const authStore = useAuthStore()
     
     const truncatedDescription = computed(() => {
       if (!props.product.description) return ''
@@ -56,21 +58,57 @@ export default {
     })
     
     const stockText = computed(() => {
-      if (props.product.stock === 0) return 'Out of Stock'
-      if (props.product.stock < 10) return `Only ${props.product.stock} left`
-      return 'In Stock'
+      if (props.product.stock === 0) return 'Hết hàng'
+      if (props.product.stock < 10) return `Chỉ còn ${props.product.stock}`
+      return 'Còn hàng'
     })
+    
+    const formatPrice = (price) => {
+      return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+      }).format(price)
+    }
     
     const goToDetail = () => {
       router.push(`/product/${props.product.id}`)
     }
     
     const addToCart = async () => {
+      // Check authentication using authStore
+      const token = localStorage.getItem('token')
+      const user = localStorage.getItem('user')
+      
+      console.log('=== DEBUG ADD TO CART ===')
+      console.log('Token in localStorage:', token ? 'EXISTS' : 'MISSING')
+      console.log('User in localStorage:', user ? JSON.parse(user) : 'MISSING')
+      console.log('authStore.isAuthenticated:', authStore.isAuthenticated)
+      console.log('authStore.user:', authStore.user)
+      console.log('========================')
+      
+      if (!authStore.isAuthenticated || !authStore.user?.id) {
+        if (confirm('Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng. Đăng nhập ngay?')) {
+          router.push('/login')
+        }
+        return
+      }
+      
       try {
+        console.log('ProductCard - Adding to cart:', props.product)
         await cartStore.addToCart(props.product, 1)
-        alert('Product added to cart!')
+        alert('✅ Đã thêm sản phẩm vào giỏ hàng!')
       } catch (error) {
-        alert('Failed to add to cart')
+        console.error('ProductCard - Error adding to cart:', error)
+        console.error('Error response:', error.response)
+        if (error.response?.status === 403) {
+          alert('⚠️ Backend từ chối request. Có thể token đã hết hạn hoặc không hợp lệ.')
+          if (confirm('Đăng nhập lại?')) {
+            authStore.logout()
+            router.push('/login')
+          }
+        } else {
+          alert('❌ Không thể thêm vào giỏ hàng')
+        }
       }
     }
     
@@ -79,7 +117,8 @@ export default {
       stockClass,
       stockText,
       goToDetail,
-      addToCart
+      addToCart,
+      formatPrice
     }
   }
 }
@@ -162,6 +201,11 @@ export default {
   margin-bottom: 16px;
   min-height: 42px;
   line-height: 1.5;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .product-footer {

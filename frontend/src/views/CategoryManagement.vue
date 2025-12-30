@@ -142,11 +142,11 @@
                 <td>{{ formatDate(category.createdAt) }}</td>
                 <td>
                   <div class="action-buttons">
+                    <button @click="toggleStatus(category)" class="btn-icon" :title="category.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'">
+                      {{ category.isActive ? '🔓' : '🔒' }}
+                    </button>
                     <button @click="editCategory(category)" class="btn-icon" title="Chỉnh sửa">
                       ✏️
-                    </button>
-                    <button @click="deleteCategory(category.id)" class="btn-icon danger" title="Xóa">
-                      🗑️
                     </button>
                   </div>
                 </td>
@@ -234,11 +234,15 @@ const filteredCategories = computed(() => {
 
 const fetchCategories = async () => {
   try {
+    console.log('Fetching categories...')
     const response = await api.getCategories()
     categories.value = response.data
+    console.log('Categories loaded:', categories.value.length)
   } catch (error) {
     console.error('Lỗi khi tải danh mục:', error)
-    alert('Không thể tải danh sách danh mục!')
+    if (error.response?.status !== 401) {
+      alert('Không thể tải danh sách danh mục!')
+    }
   }
 }
 
@@ -274,15 +278,29 @@ const editCategory = (category) => {
 }
 
 const deleteCategory = async (id) => {
-  if (!confirm('Bạn có chắc muốn xóa danh mục này?')) return
+  if (!confirm('⚠️ BẠN CHẮC CHẮN MUỐN XÓA VĨNH VIỄN?\n\nHành động này KHÔNG THỂ HOÀN TÁC!\nDanh mục sẽ bị xóa khỏi database.\n\nNên dùng nút 🔒 để vô hiệu hóa thay vì xóa.')) return
   
   try {
     await api.deleteCategory(id)
-    alert('Xóa danh mục thành công!')
+    alert('✅ Xóa danh mục vĩnh viễn thành công!')
     fetchCategories()
   } catch (error) {
     console.error('Lỗi khi xóa danh mục:', error)
-    alert('Không thể xóa danh mục!')
+    alert('❌ Không thể xóa danh mục! Có thể danh mục đang có sản phẩm.')
+  }
+}
+
+const toggleStatus = async (category) => {
+  const action = category.isActive ? 'vô hiệu hóa' : 'kích hoạt'
+  if (!confirm(`Bạn muốn ${action} danh mục "${category.name}"?`)) return
+  
+  try {
+    await api.toggleCategoryStatus(category.id)
+    alert(`✅ ${action.charAt(0).toUpperCase() + action.slice(1)} thành công!`)
+    fetchCategories()
+  } catch (error) {
+    console.error('Lỗi khi thay đổi trạng thái:', error)
+    alert('❌ Không thể thay đổi trạng thái!')
   }
 }
 

@@ -7,6 +7,7 @@ import com.shophub.techgadgets.repository.CategoryRepository;
 import com.shophub.techgadgets.repository.ProductRepository;
 import com.shophub.techgadgets.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -17,13 +18,16 @@ public class DataLoader implements CommandLineRunner {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public DataLoader(CategoryRepository categoryRepository, 
                      ProductRepository productRepository,
-                     UserRepository userRepository) {
+                     UserRepository userRepository,
+                     PasswordEncoder passwordEncoder) {
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -33,16 +37,22 @@ public class DataLoader implements CommandLineRunner {
             User admin = new User();
             admin.setFullName("Admin User");
             admin.setEmail("admin@shophub.com");
-            admin.setPasswordHash("$2a$10$SAMPLE_HASH"); // In production, use BCrypt
+            admin.setPasswordHash(passwordEncoder.encode("admin123")); // Password: admin123
             admin.setRole("ADMIN");
+            admin.setIsActive(true);
             userRepository.save(admin);
+            
+            System.out.println("✅ Admin account created: admin@shophub.com / admin123");
 
             User customer = new User();
             customer.setFullName("John Doe");
             customer.setEmail("customer@example.com");
-            customer.setPasswordHash("$2a$10$SAMPLE_HASH");
+            customer.setPasswordHash(passwordEncoder.encode("customer123")); // Password: customer123
             customer.setRole("CUSTOMER");
+            customer.setIsActive(true);
             userRepository.save(customer);
+            
+            System.out.println("✅ Customer account created: customer@example.com / customer123");
         }
 
         // Load sample categories

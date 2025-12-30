@@ -60,6 +60,12 @@
           <h1>Quản Lý Khách Hàng</h1>
           <p>Quản lý thông tin khách hàng</p>
         </div>
+        <div class="top-bar-actions">
+          <button @click="showCreateModal = true" class="btn-primary">
+            <span>➕</span>
+            <span>Thêm Khách Hàng</span>
+          </button>
+        </div>
       </header>
 
       <!-- Stats Cards -->
@@ -157,13 +163,8 @@
                     <button @click="viewCustomerDetail(customer)" class="btn-icon" title="Chi tiết">
                       👁️
                     </button>
-                    <button 
-                      v-if="customer.role !== 'ADMIN'" 
-                      @click="toggleRole(customer)" 
-                      class="btn-icon" 
-                      title="Thay đổi vai trò"
-                    >
-                      🔄
+                    <button @click="editCustomer(customer)" class="btn-icon" title="Chỉnh sửa">
+                      ✏️
                     </button>
                     <button 
                       v-if="customer.role !== 'ADMIN'" 
@@ -242,6 +243,68 @@
         </div>
       </div>
     </div>
+
+    <!-- Create/Edit Modal -->
+    <div v-if="showCreateModal || showEditModal" class="modal-overlay" @click="closeFormModal">
+      <div class="modal" @click.stop>
+        <h2>{{ showEditModal ? 'Chỉnh Sửa Khách Hàng' : 'Thêm Khách Hàng Mới' }}</h2>
+        <form @submit.prevent="saveCustomer">
+          <div class="form-group">
+            <label>Họ và tên *</label>
+            <input v-model="form.fullName" type="text" required placeholder="Nguyễn Văn A">
+          </div>
+          
+          <div class="form-group">
+            <label>Email *</label>
+            <input 
+              v-model="form.email" 
+              type="email" 
+              required 
+              placeholder="example@email.com"
+              :disabled="showEditModal"
+            >
+            <small v-if="showEditModal" style="color: #64748b;">Email không thể thay đổi</small>
+          </div>
+          
+          <div class="form-group">
+            <label>Số điện thoại</label>
+            <input v-model="form.phone" type="tel" placeholder="0901234567">
+          </div>
+          
+          <div class="form-group">
+            <label>Mật khẩu {{ showEditModal ? '(để trống nếu không đổi)' : '*' }}</label>
+            <input 
+              v-model="form.password" 
+              type="password" 
+              :required="!showEditModal"
+              placeholder="••••••••"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label>Vai trò *</label>
+            <select v-model="form.role" required>
+              <option value="CUSTOMER">👤 Khách hàng</option>
+              <option value="ADMIN">👑 Quản trị viên</option>
+            </select>
+          </div>
+          
+          <div class="form-group checkbox">
+            <label>
+              <input v-model="form.isActive" type="checkbox">
+              Tài khoản hoạt động
+            </label>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" @click="closeFormModal" class="btn-cancel">Hủy</button>
+            <button type="submit" class="btn-primary">
+              {{ showEditModal ? 'Cập Nhật' : 'Tạo Mới' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -259,7 +322,18 @@ const orders = ref([])
 const searchQuery = ref('')
 const filterRole = ref('')
 const showDetailModal = ref(false)
+const showCreateModal = ref(false)
+const showEditModal = ref(false)
 const selectedCustomer = ref(null)
+const form = ref({
+  id: null,
+  fullName: '',
+  email: '',
+  phone: '',
+  password: '',
+  role: 'CUSTOMER',
+  isActive: true
+})
 
 const activeCustomers = computed(() => customers.value.filter(c => c.role === 'CUSTOMER').length)
 const adminCount = computed(() => customers.value.filter(c => c.role === 'ADMIN').length)
@@ -290,17 +364,27 @@ const filteredCustomers = computed(() => {
 
 const fetchCustomers = async () => {
   try {
-    const response = await api.get('/users')
+    const response = await api.getUsers()
     customers.value = response.data
   } catch (error) {
     console.error('Lỗi khi tải khách hàng:', error)
-    alert('Không thể tải danh sách khách hàng!')
+    
+    if (error.response?.status === 403) {
+      alert('❌ Bạn không có quyền truy cập!\n\nChỉ tài khoản ADMIN mới có thể quản lý khách hàng.\n\nVui lòng đăng nhập với tài khoản admin.')
+      router.push('/admin')
+    } else if (error.response?.status === 401) {
+      alert('❌ Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.')
+      authStore.logout()
+      router.push('/login')
+    } else {
+      alert('❌ Không thể tải danh sách khách hàng!\n\nLỗi: ' + (error.response?.data?.message || error.message))
+    }
   }
 }
 
 const fetchOrders = async () => {
   try {
-    const response = await api.getAllOrders()
+    const response = await api.getOrders()
     orders.value = response.data
   } catch (error) {
     console.error('Lỗi khi tải đơn hàng:', error)
@@ -312,12 +396,86 @@ const viewCustomerDetail = (customer) => {
   showDetailModal.value = true
 }
 
+/**
+ * CREATE - Tạo hoặc UPDATE - Cập nhật khách hàng
+ */
+const saveCustomer = async () => {
+  try {
+    const userData = {
+      fullName: form.value.fullName,
+      email: form.value.email,
+      phone: form.value.phone,
+      role: form.value.role,
+      isActive: form.value.isActive
+    }
+    
+    // Chỉ gửi password nếu có giá trị
+    if (form.value.password) {
+      userData.passwordHash = form.value.password
+    }
+    
+    if (showEditModal.value) {
+      // UPDATE
+      await api.put(`/users/${form.value.id}`, userData)
+      alert('✅ Cập nhật khách hàng thành công!')
+    } else {
+      // CREATE - phải có password
+      if (!form.value.password) {
+        alert('❌ Vui lòng nhập mật khẩu!')
+        return
+      }
+      userData.passwordHash = form.value.password
+      await api.post('/users', userData)
+      alert('✅ Thêm khách hàng mới thành công!')
+    }
+    
+    closeFormModal()
+    fetchCustomers()
+  } catch (error) {
+    console.error('Lỗi khi lưu khách hàng:', error)
+    alert(error.response?.data || 'Không thể lưu khách hàng!')
+  }
+}
+
+/**
+ * Mở form EDIT với dữ liệu của customer
+ */
+const editCustomer = (customer) => {
+  form.value = {
+    id: customer.id,
+    fullName: customer.fullName,
+    email: customer.email,
+    phone: customer.phone || '',
+    password: '', // Không hiển thị password cũ
+    role: customer.role,
+    isActive: customer.isActive
+  }
+  showEditModal.value = true
+}
+
+/**
+ * Đóng modal Create/Edit và reset form
+ */
+const closeFormModal = () => {
+  showCreateModal.value = false
+  showEditModal.value = false
+  form.value = {
+    id: null,
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: 'CUSTOMER',
+    isActive: true
+  }
+}
+
 const toggleRole = async (customer) => {
   const newRole = customer.role === 'CUSTOMER' ? 'ADMIN' : 'CUSTOMER'
   if (!confirm(`Bạn có chắc muốn chuyển vai trò của ${customer.fullName} thành ${newRole}?`)) return
   
   try {
-    await api.put(`/users/${customer.id}`, { ...customer, role: newRole })
+    await api.updateUser(customer.id, { ...customer, role: newRole })
     alert('Cập nhật vai trò thành công!')
     fetchCustomers()
   } catch (error) {
@@ -326,16 +484,19 @@ const toggleRole = async (customer) => {
   }
 }
 
+/**
+ * DELETE - Xóa (soft delete) khách hàng
+ */
 const deleteCustomer = async (id) => {
-  if (!confirm('Bạn có chắc muốn xóa khách hàng này?')) return
+  if (!confirm('Bạn có chắc muốn xóa khách hàng này? (Tài khoản sẽ bị vô hiệu hóa)')) return
   
   try {
-    await api.delete(`/users/${id}`)
-    alert('Xóa khách hàng thành công!')
+    await api.deleteUser(id)
+    alert('✅ Đã vô hiệu hóa tài khoản khách hàng!')
     fetchCustomers()
   } catch (error) {
     console.error('Lỗi khi xóa khách hàng:', error)
-    alert('Không thể xóa khách hàng!')
+    alert(error.response?.data || 'Không thể xóa khách hàng!')
   }
 }
 
@@ -382,6 +543,22 @@ const handleLogout = () => {
 }
 
 onMounted(() => {
+  // Kiểm tra quyền admin
+  const currentUser = authStore.user
+  console.log('Current user:', currentUser)
+  
+  if (!authStore.isAuthenticated) {
+    alert('❌ Vui lòng đăng nhập!')
+    router.push('/login')
+    return
+  }
+  
+  if (!authStore.isAdmin) {
+    alert('❌ Chỉ tài khoản ADMIN mới có quyền truy cập trang này!\n\nRole hiện tại: ' + (currentUser?.role || 'N/A'))
+    router.push('/admin')
+    return
+  }
+  
   fetchCustomers()
   fetchOrders()
 })
@@ -992,5 +1169,96 @@ onMounted(() => {
   font-size: 13px;
   color: #64748b;
   font-weight: 600;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 700;
+  color: #495057;
+  font-size: 14px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="tel"],
+.form-group input[type="password"],
+.form-group select {
+  width: 100%;
+  padding: 14px 18px;
+  border: 2px solid #e0e6ed;
+  border-radius: 12px;
+  font-size: 15px;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input:disabled {
+  background: #f8f9fa;
+  cursor: not-allowed;
+}
+
+.form-group.checkbox label {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+.form-group.checkbox input {
+  margin-right: 10px;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+}
+
+.form-group select {
+  background: white;
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #f1f3f5;
+}
+
+.btn-cancel {
+  padding: 12px 24px;
+  border: 2px solid #dee2e6;
+  background: white;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  color: #495057;
+}
+
+.btn-cancel:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
 }
 </style>

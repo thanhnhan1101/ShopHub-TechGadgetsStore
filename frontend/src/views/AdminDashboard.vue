@@ -73,13 +73,14 @@
       </header>
 
       <!-- Stats Cards -->
-      <section class="stats-grid">
+      <section class="stats-grid" v-if="!loading">
         <div class="stat-card">
           <div class="stat-icon revenue">💰</div>
           <div class="stat-content">
             <div class="stat-label">Doanh thu</div>
             <div class="stat-value">{{ formatCurrency(stats.revenue) }}</div>
-            <div class="stat-change positive">+12.5% so với tháng trước</div>
+            <div class="stat-change positive" v-if="stats.revenue > 0">Tổng doanh thu từ đơn hoàn thành</div>
+            <div class="stat-change" v-else>Chưa có doanh thu</div>
           </div>
         </div>
 
@@ -88,7 +89,10 @@
           <div class="stat-content">
             <div class="stat-label">Đơn hàng</div>
             <div class="stat-value">{{ stats.orders }}</div>
-            <div class="stat-change positive">+8.2% so với tháng trước</div>
+            <div class="stat-change positive" v-if="orderStatusData.completed > 0">
+              {{ orderStatusData.completed }} đơn hoàn thành
+            </div>
+            <div class="stat-change" v-else>Chưa có đơn hàng</div>
           </div>
         </div>
 
@@ -97,7 +101,8 @@
           <div class="stat-content">
             <div class="stat-label">Khách hàng</div>
             <div class="stat-value">{{ stats.customers }}</div>
-            <div class="stat-change positive">+15.3% so với tháng trước</div>
+            <div class="stat-change positive" v-if="stats.customers > 0">Tổng số khách hàng đã đăng ký</div>
+            <div class="stat-change" v-else>Chưa có khách hàng</div>
           </div>
         </div>
 
@@ -106,21 +111,26 @@
           <div class="stat-content">
             <div class="stat-label">Sản phẩm</div>
             <div class="stat-value">{{ stats.products }}</div>
-            <div class="stat-change negative">-2 sản phẩm hết hàng</div>
+            <div class="stat-change positive" v-if="stats.products > 0">Tổng số sản phẩm trong cửa hàng</div>
+            <div class="stat-change" v-else>Chưa có sản phẩm</div>
           </div>
         </div>
       </section>
 
+      <!-- Loading State -->
+      <section class="loading-section" v-if="loading">
+        <div class="loader">
+          <div class="spinner"></div>
+          <p>Đang tải dữ liệu...</p>
+        </div>
+      </section>
+
       <!-- Charts Section -->
-      <section class="charts-section">
+      <section class="charts-section" v-if="!loading">
         <div class="chart-card large">
           <div class="card-header">
             <h2>Doanh thu theo tháng</h2>
-            <select class="filter-select">
-              <option>6 tháng gần nhất</option>
-              <option>12 tháng gần nhất</option>
-              <option>Năm nay</option>
-            </select>
+            <span class="filter-info">6 tháng gần nhất</span>
           </div>
           <div class="chart-container">
             <canvas ref="revenueChart"></canvas>
@@ -137,34 +147,34 @@
           <div class="legend">
             <div class="legend-item">
               <span class="legend-color" style="background: #667eea"></span>
-              <span>Hoàn thành: 245</span>
+              <span>Hoàn thành: {{ orderStatusData.completed }}</span>
             </div>
             <div class="legend-item">
               <span class="legend-color" style="background: #ffa500"></span>
-              <span>Đang xử lý: 89</span>
+              <span>Đang xử lý: {{ orderStatusData.processing + orderStatusData.pending }}</span>
             </div>
             <div class="legend-item">
               <span class="legend-color" style="background: #ff6b6b"></span>
-              <span>Đã hủy: 12</span>
+              <span>Đã hủy: {{ orderStatusData.cancelled }}</span>
             </div>
           </div>
         </div>
       </section>
 
       <!-- Recent Orders Table -->
-      <section class="table-section">
+      <section class="table-section" v-if="!loading">
         <div class="table-header">
           <h2>Đơn hàng gần đây</h2>
           <div class="table-actions">
             <input type="search" placeholder="Tìm kiếm đơn hàng..." class="search-input">
-            <button class="btn-primary">
-              <span>➕</span>
-              Tạo đơn hàng
-            </button>
+            <router-link to="/admin/orders" class="btn-primary">
+              <span>👁️</span>
+              Xem tất cả
+            </router-link>
           </div>
         </div>
 
-        <div class="table-container">
+        <div class="table-container" v-if="recentOrders.length > 0">
           <table class="data-table">
             <thead>
               <tr>
@@ -174,7 +184,6 @@
                 <th>Số tiền</th>
                 <th>Trạng thái</th>
                 <th>Ngày đặt</th>
-                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -182,41 +191,38 @@
                 <td><span class="order-id">{{ order.id }}</span></td>
                 <td>
                   <div class="customer-info">
-                    <img :src="`https://ui-avatars.com/api/?name=${order.customerName}&background=random`" alt="" class="customer-avatar">
+                    <img :src="`https://ui-avatars.com/api/?name=${encodeURIComponent(order.customerName)}&background=random`" alt="" class="customer-avatar">
                     <span>{{ order.customerName }}</span>
                   </div>
                 </td>
-                <td>{{ order.products }}</td>
+                <td>
+                  <div class="product-info">
+                    <span class="product-count">{{ order.productCount }} sản phẩm</span>
+                  </div>
+                </td>
                 <td><strong>{{ formatCurrency(order.amount) }}</strong></td>
                 <td>
-                  <span class="status-badge" :class="order.status">
+                  <span class="status-badge" :class="getStatusClass(order.status)">
                     {{ getStatusText(order.status) }}
                   </span>
                 </td>
                 <td>{{ order.date }}</td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-icon" title="Xem chi tiết">👁️</button>
-                    <button class="btn-icon" title="Chỉnh sửa">✏️</button>
-                    <button class="btn-icon danger" title="Xóa">🗑️</button>
-                  </div>
-                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="table-footer">
+        <div class="empty-state" v-else>
+          <p>Chưa có đơn hàng nào</p>
+        </div>
+
+        <div class="table-footer" v-if="recentOrders.length > 0">
           <div class="showing-info">
-            Hiển thị 1-10 của 245 đơn hàng
+            Hiển thị {{ recentOrders.length }} đơn hàng gần nhất
           </div>
-          <div class="pagination">
-            <button class="page-btn" disabled>‹</button>
-            <button class="page-btn active">1</button>
-            <button class="page-btn">2</button>
-            <button class="page-btn">3</button>
-            <button class="page-btn">›</button>
-          </div>
+          <router-link to="/admin/orders" class="view-all-link">
+            Xem tất cả đơn hàng →
+          </router-link>
         </div>
       </section>
     </main>
@@ -227,6 +233,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import api from '../services/api'
 import Chart from 'chart.js/auto'
 
 const router = useRouter()
@@ -234,98 +241,28 @@ const authStore = useAuthStore()
 
 const userName = computed(() => authStore.user?.fullName || 'Admin')
 
+const loading = ref(true)
 const stats = ref({
-  revenue: 125680000,
-  orders: 346,
-  customers: 1248,
-  products: 156
+  revenue: 0,
+  orders: 0,
+  customers: 0,
+  products: 0
 })
 
-const recentOrders = ref([
-  {
-    id: '#ORD-2024-001',
-    customerName: 'Nguyễn Văn A',
-    products: 'iPhone 15 Pro Max, AirPods Pro',
-    amount: 35500000,
-    status: 'completed',
-    date: '15/12/2024'
-  },
-  {
-    id: '#ORD-2024-002',
-    customerName: 'Trần Thị B',
-    products: 'MacBook Pro M3',
-    amount: 52000000,
-    status: 'processing',
-    date: '15/12/2024'
-  },
-  {
-    id: '#ORD-2024-003',
-    customerName: 'Lê Văn C',
-    products: 'iPad Air, Apple Pencil',
-    amount: 18500000,
-    status: 'completed',
-    date: '14/12/2024'
-  },
-  {
-    id: '#ORD-2024-004',
-    customerName: 'Phạm Thị D',
-    products: 'Apple Watch Series 9',
-    amount: 12000000,
-    status: 'shipping',
-    date: '14/12/2024'
-  },
-  {
-    id: '#ORD-2024-005',
-    customerName: 'Hoàng Văn E',
-    products: 'AirPods Max',
-    amount: 13500000,
-    status: 'cancelled',
-    date: '13/12/2024'
-  },
-  {
-    id: '#ORD-2024-006',
-    customerName: 'Vũ Thị F',
-    products: 'iPhone 15, MagSafe Charger',
-    amount: 22000000,
-    status: 'completed',
-    date: '13/12/2024'
-  },
-  {
-    id: '#ORD-2024-007',
-    customerName: 'Đỗ Văn G',
-    products: 'Mac Mini M2',
-    amount: 15500000,
-    status: 'processing',
-    date: '12/12/2024'
-  },
-  {
-    id: '#ORD-2024-008',
-    customerName: 'Bùi Thị H',
-    products: 'Apple TV 4K',
-    amount: 5500000,
-    status: 'completed',
-    date: '12/12/2024'
-  },
-  {
-    id: '#ORD-2024-009',
-    customerName: 'Ngô Văn I',
-    products: 'HomePod mini (2 cái)',
-    amount: 5000000,
-    status: 'shipping',
-    date: '11/12/2024'
-  },
-  {
-    id: '#ORD-2024-010',
-    customerName: 'Đinh Thị K',
-    products: 'Magic Keyboard, Magic Mouse',
-    amount: 8500000,
-    status: 'completed',
-    date: '11/12/2024'
-  }
-])
+const recentOrders = ref([])
+const allOrders = ref([])
+const orderStatusData = ref({
+  completed: 0,
+  processing: 0,
+  cancelled: 0,
+  pending: 0
+})
+const monthlyRevenue = ref([0, 0, 0, 0, 0, 0])
 
 const revenueChart = ref(null)
 const orderStatusChart = ref(null)
+let revenueChartInstance = null
+let orderStatusChartInstance = null
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('vi-VN', {
@@ -334,14 +271,31 @@ const formatCurrency = (value) => {
   }).format(value)
 }
 
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('vi-VN')
+}
+
 const getStatusText = (status) => {
   const statusMap = {
-    completed: 'Hoàn thành',
-    processing: 'Đang xử lý',
-    shipping: 'Đang giao',
-    cancelled: 'Đã hủy'
+    COMPLETED: 'Hoàn thành',
+    PROCESSING: 'Đang xử lý',
+    PENDING: 'Chờ xử lý',
+    SHIPPING: 'Đang giao',
+    CANCELLED: 'Đã hủy'
   }
   return statusMap[status] || status
+}
+
+const getStatusClass = (status) => {
+  const statusClassMap = {
+    COMPLETED: 'completed',
+    PROCESSING: 'processing',
+    PENDING: 'processing',
+    SHIPPING: 'shipping',
+    CANCELLED: 'cancelled'
+  }
+  return statusClassMap[status] || 'processing'
 }
 
 const handleLogout = () => {
@@ -349,16 +303,105 @@ const handleLogout = () => {
   router.push('/login')
 }
 
-onMounted(() => {
+// Fetch dữ liệu thật từ API
+const fetchDashboardData = async () => {
+  try {
+    loading.value = true
+    
+    // Fetch tất cả dữ liệu song song
+    const [productsRes, ordersRes, usersRes] = await Promise.all([
+      api.getProducts(),
+      api.getOrders(),
+      api.getUsers()
+    ])
+
+    // Cập nhật products count
+    stats.value.products = productsRes.data.length
+
+    // Cập nhật customers count
+    stats.value.customers = usersRes.data.length
+
+    // Xử lý orders
+    allOrders.value = ordersRes.data
+    stats.value.orders = allOrders.value.length
+
+    // Tính tổng doanh thu
+    stats.value.revenue = allOrders.value.reduce((sum, order) => sum + order.totalAmount, 0)
+
+    // Đếm orders theo status
+    orderStatusData.value = {
+      completed: allOrders.value.filter(o => o.status === 'COMPLETED').length,
+      processing: allOrders.value.filter(o => o.status === 'PROCESSING' || o.status === 'PENDING').length,
+      cancelled: allOrders.value.filter(o => o.status === 'CANCELLED').length,
+      pending: allOrders.value.filter(o => o.status === 'PENDING').length
+    }
+
+    // Tính doanh thu 6 tháng gần nhất
+    const currentDate = new Date()
+    monthlyRevenue.value = Array(6).fill(0)
+    
+    allOrders.value.forEach(order => {
+      if (order.status === 'COMPLETED') {
+        const orderDate = new Date(order.orderDate)
+        const monthDiff = (currentDate.getFullYear() - orderDate.getFullYear()) * 12 
+                         + currentDate.getMonth() - orderDate.getMonth()
+        
+        if (monthDiff >= 0 && monthDiff < 6) {
+          monthlyRevenue.value[5 - monthDiff] += order.totalAmount / 1000000 // Convert to millions
+        }
+      }
+    })
+
+    // Lấy 10 đơn hàng gần nhất
+    recentOrders.value = allOrders.value
+      .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
+      .slice(0, 10)
+      .map(order => ({
+        id: `#${order.id}`,
+        customerName: order.user?.fullName || 'N/A',
+        products: order.orderItems?.map(item => item.product?.name).join(', ') || 'N/A',
+        productCount: order.orderItems?.length || 0,
+        amount: order.totalAmount,
+        status: order.status,
+        date: formatDate(order.orderDate)
+      }))
+
+    // Cập nhật charts sau khi có dữ liệu
+    updateCharts()
+
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error)
+    if (error.response?.status === 403) {
+      alert('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập với tài khoản Admin.')
+      router.push('/login')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const updateCharts = () => {
   // Revenue Chart
   if (revenueChart.value) {
-    new Chart(revenueChart.value, {
+    if (revenueChartInstance) {
+      revenueChartInstance.destroy()
+    }
+    
+    const currentMonth = new Date().getMonth()
+    const monthNames = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
+    const labels = []
+    for (let i = 5; i >= 0; i--) {
+      const monthIndex = (currentMonth - i + 12) % 12
+      labels.push(monthNames[monthIndex])
+    }
+
+    revenueChartInstance = new Chart(revenueChart.value, {
       type: 'line',
       data: {
-        labels: ['T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
+        labels: labels,
         datasets: [{
           label: 'Doanh thu (triệu VNĐ)',
-          data: [95, 105, 98, 115, 108, 126],
+          data: monthlyRevenue.value,
           borderColor: '#667eea',
           backgroundColor: 'rgba(102, 126, 234, 0.1)',
           borderWidth: 3,
@@ -384,7 +427,7 @@ onMounted(() => {
             beginAtZero: true,
             ticks: {
               callback: function(value) {
-                return value + 'M'
+                return value.toFixed(1) + 'M'
               }
             }
           }
@@ -395,12 +438,20 @@ onMounted(() => {
 
   // Order Status Chart
   if (orderStatusChart.value) {
-    new Chart(orderStatusChart.value, {
+    if (orderStatusChartInstance) {
+      orderStatusChartInstance.destroy()
+    }
+
+    orderStatusChartInstance = new Chart(orderStatusChart.value, {
       type: 'doughnut',
       data: {
         labels: ['Hoàn thành', 'Đang xử lý', 'Đã hủy'],
         datasets: [{
-          data: [245, 89, 12],
+          data: [
+            orderStatusData.value.completed,
+            orderStatusData.value.processing + orderStatusData.value.pending,
+            orderStatusData.value.cancelled
+          ],
           backgroundColor: ['#667eea', '#ffa500', '#ff6b6b'],
           borderWidth: 0
         }]
@@ -416,6 +467,10 @@ onMounted(() => {
       }
     })
   }
+}
+
+onMounted(() => {
+  fetchDashboardData()
 })
 </script>
 
@@ -724,6 +779,12 @@ onMounted(() => {
   border-color: #667eea;
 }
 
+.filter-info {
+  font-size: 14px;
+  color: #7f8c8d;
+  font-weight: 600;
+}
+
 .chart-container {
   height: 300px;
 }
@@ -965,6 +1026,73 @@ onMounted(() => {
 .page-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Loading State */
+.loading-section {
+  padding: 100px 0;
+  text-align: center;
+}
+
+.loader {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loader p {
+  font-size: 16px;
+  color: #7f8c8d;
+  font-weight: 600;
+}
+
+/* Empty State */
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: #7f8c8d;
+  font-size: 16px;
+}
+
+/* Product Info */
+.product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.product-count {
+  font-weight: 600;
+  color: #667eea;
+  font-size: 13px;
+}
+
+/* View All Link */
+.view-all-link {
+  color: #667eea;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.view-all-link:hover {
+  color: #764ba2;
+  transform: translateX(4px);
 }
 
 /* Responsive */

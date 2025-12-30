@@ -10,4 +10,5 @@ import java.util.List;
 public interface ProductRepository extends JpaRepository<Product, Integer> {
     List<Product> findByIsActiveTrue();
     List<Product> findByCategoryIdAndIsActiveTrue(Integer categoryId);
+    List<Product> findByCategoryId(Integer categoryId); // Lấy tất cả products theo category (cho admin)
 }

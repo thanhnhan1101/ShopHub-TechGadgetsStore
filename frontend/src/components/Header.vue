@@ -93,7 +93,10 @@ export default {
     }
     
     onMounted(() => {
-      cartStore.fetchCart()
+      // Chỉ fetch cart nếu user đã login
+      if (authStore.isAuthenticated) {
+        cartStore.fetchCart()
+      }
       document.addEventListener('click', handleClickOutside)
     })
     

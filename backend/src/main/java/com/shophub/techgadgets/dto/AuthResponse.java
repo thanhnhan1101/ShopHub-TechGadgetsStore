@@ -1,6 +1,7 @@
 package com.shophub.techgadgets.dto;
 
 public class AuthResponse {
+    private Integer id;
     private String token;
     private String email;
     private String fullName;
@@ -9,11 +10,20 @@ public class AuthResponse {
     public AuthResponse() {
     }
 
-    public AuthResponse(String token, String email, String fullName, String role) {
+    public AuthResponse(Integer id, String token, String email, String fullName, String role) {
+        this.id = id;
         this.token = token;
         this.email = email;
         this.fullName = fullName;
         this.role = role;
+    }
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
     }
 
     public String getToken() {

@@ -20,7 +20,12 @@ public class CategoryController {
 
     @GetMapping
     public List<Category> getAllCategories() {
-        return categoryRepository.findByIsActiveTrue();
+        return categoryRepository.findAll(); // Trả về tất cả để admin quản lý
+    }
+    
+    @GetMapping("/active")
+    public List<Category> getActiveCategories() {
+        return categoryRepository.findByIsActiveTrue(); // Chỉ active cho user
     }
 
     @GetMapping("/{id}")
@@ -52,9 +57,18 @@ public class CategoryController {
     public ResponseEntity<Void> deleteCategory(@PathVariable Integer id) {
         return categoryRepository.findById(id)
                 .map(category -> {
-                    category.setIsActive(false); // Soft delete
-                    categoryRepository.save(category);
+                    categoryRepository.delete(category); // Hard delete - Xóa thật khỏi database
                     return ResponseEntity.noContent().<Void>build();
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    @PutMapping("/{id}/toggle-status")
+    public ResponseEntity<Category> toggleCategoryStatus(@PathVariable Integer id) {
+        return categoryRepository.findById(id)
+                .map(category -> {
+                    category.setIsActive(!category.getIsActive()); // Chuyển đổi trạng thái
+                    return ResponseEntity.ok(categoryRepository.save(category));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

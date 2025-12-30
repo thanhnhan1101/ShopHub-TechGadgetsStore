@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
+import { useAuthStore } from './auth'
 
 export const useCartStore = defineStore('cart', {
   state: () => ({
-    items: [],
-    userId: 1 // Mock user ID - in production, get from auth
+    items: []
   }),
 
   getters: {
@@ -20,18 +20,31 @@ export const useCartStore = defineStore('cart', {
 
   actions: {
     async fetchCart() {
+      const authStore = useAuthStore()
+      if (!authStore.isAuthenticated || !authStore.user?.id) {
+        this.items = []
+        return
+      }
+      
       try {
-        const response = await api.getCart(this.userId)
+        const response = await api.getCart(authStore.user.id)
         this.items = response.data
       } catch (error) {
         console.error('Error fetching cart:', error)
+        this.items = []
       }
     },
 
     async addToCart(product, quantity = 1) {
+      const authStore = useAuthStore()
+      if (!authStore.isAuthenticated || !authStore.user?.id) {
+        console.error('User not authenticated')
+        return
+      }
+      
       try {
         const cartItem = {
-          user: { id: this.userId },
+          user: { id: authStore.user.id },
           product: { id: product.id },
           quantity
         }

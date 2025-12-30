@@ -292,7 +292,7 @@ const filteredOrders = computed(() => {
 
 const fetchOrders = async () => {
   try {
-    const response = await api.getAllOrders()
+    const response = await api.getOrders()
     orders.value = response.data
   } catch (error) {
     console.error('Lỗi khi tải đơn hàng:', error)
@@ -302,7 +302,7 @@ const fetchOrders = async () => {
 
 const fetchUsers = async () => {
   try {
-    const response = await api.get('/users')
+    const response = await api.getUsers()
     users.value = response.data
   } catch (error) {
     console.error('Lỗi khi tải người dùng:', error)

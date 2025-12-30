@@ -14,6 +14,7 @@ export const useAuthStore = defineStore('auth', () => {
   const setAuth = (authData) => {
     token.value = authData.token
     user.value = {
+      id: authData.id,
       email: authData.email,
       fullName: authData.fullName,
       role: authData.role
@@ -26,10 +27,18 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const loadUserFromStorage = () => {
+    const storedToken = localStorage.getItem('token')
     const storedUser = localStorage.getItem('user')
-    if (storedUser && token.value) {
+    
+    console.log('Loading user from storage:', { hasToken: !!storedToken, hasUser: !!storedUser })
+    
+    if (storedToken && storedUser) {
+      token.value = storedToken
       user.value = JSON.parse(storedUser)
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
+      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
+      console.log('User loaded:', user.value)
+    } else {
+      console.warn('No user data in localStorage')
     }
   }
 
@@ -133,6 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
-    fetchCurrentUser
+    fetchCurrentUser,
+    loadUserFromStorage
   }
 })

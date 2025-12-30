@@ -1,5 +1,6 @@
 package com.shophub.techgadgets.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -8,6 +9,7 @@ import java.time.LocalDateTime;
     @Index(name = "IDX_USERS_EMAIL", columnList = "EMAIL"),
     @Index(name = "IDX_USERS_ROLE", columnList = "ROLE")
 })
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class User {
 
     @Id

@@ -47,6 +47,7 @@ public class AuthService {
         String token = tokenProvider.generateToken(savedUser.getEmail(), savedUser.getRole());
 
         return new AuthResponse(
+                savedUser.getId(),
                 token,
                 savedUser.getEmail(),
                 savedUser.getFullName(),
@@ -70,6 +71,7 @@ public class AuthService {
         String token = tokenProvider.generateToken(user.getEmail(), user.getRole());
 
         return new AuthResponse(
+                user.getId(),
                 token,
                 user.getEmail(),
                 user.getFullName(),

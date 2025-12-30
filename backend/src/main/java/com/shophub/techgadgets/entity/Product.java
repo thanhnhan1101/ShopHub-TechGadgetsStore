@@ -1,5 +1,6 @@
 package com.shophub.techgadgets.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
     @Index(name = "IDX_PRODUCTS_PRICE", columnList = "PRICE"),
     @Index(name = "IDX_PRODUCTS_STOCK", columnList = "STOCK")
 })
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Product {
 
     @Id
@@ -33,7 +35,7 @@ public class Product {
     @Column(name = "STOCK", nullable = false)
     private Integer stock = 0;
 
-    @Column(name = "IMAGE_URL", length = 500)
+    @Column(name = "IMAGE_URL", columnDefinition = "NVARCHAR(MAX)")
     private String imageUrl;
 
     @Column(name = "IS_ACTIVE", nullable = false)

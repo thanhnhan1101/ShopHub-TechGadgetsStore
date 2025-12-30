@@ -94,15 +94,27 @@ const router = createRouter({
 // Navigation guards
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
+  
+  // Log navigation for debugging
+  console.log('Navigating:', { 
+    from: from.path, 
+    to: to.path, 
+    isAuthenticated: authStore.isAuthenticated,
+    isAdmin: authStore.isAdmin,
+    requiresAuth: to.meta.requiresAuth,
+    requiresAdmin: to.meta.requiresAdmin
+  })
 
   // Check if route requires authentication
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    console.warn('Route requires auth but user not authenticated')
     next({ name: 'Login', query: { redirect: to.fullPath } })
     return
   }
 
   // Check if route requires admin role
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    console.warn('Route requires admin but user is not admin')
     next({ name: 'Home' })
     return
   }

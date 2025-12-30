@@ -6,6 +6,8 @@ import com.shophub.techgadgets.repository.ProductRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+
 import java.util.List;
 
 @RestController
@@ -22,9 +24,22 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<Product> getAllProducts(@RequestParam(required = false) Integer categoryId) {
+    public List<Product> getAllProducts(
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false, defaultValue = "false") Boolean includeInactive) {
+        
         if (categoryId != null) {
+            // Nếu includeInactive = true (admin), lấy tất cả
+            if (includeInactive) {
+                return productRepository.findByCategoryId(categoryId);
+            }
+            // Nếu false (user), chỉ lấy active
             return productRepository.findByCategoryIdAndIsActiveTrue(categoryId);
+        }
+        
+        // Lấy tất cả products (admin) hoặc chỉ active (user)
+        if (includeInactive) {
+            return productRepository.findAll();
         }
         return productRepository.findByIsActiveTrue();
     }
@@ -38,14 +53,24 @@ public class ProductController {
 
     @PostMapping
     public ResponseEntity<Product> createProduct(@RequestBody Product product) {
-        // Validate category exists
+        // Validate category
         if (product.getCategory() == null || product.getCategory().getId() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        // Validate price and stock
+        if (product.getPrice() == null || product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        if (product.getStock() == null || product.getStock() < 0) {
             return ResponseEntity.badRequest().build();
         }
         
         return categoryRepository.findById(product.getCategory().getId())
                 .map(category -> {
                     product.setCategory(category);
+                    // imageUrl, name, description, price, stock, isActive đã có trong product object
                     return ResponseEntity.ok(productRepository.save(product));
                 })
                 .orElse(ResponseEntity.badRequest().build());
@@ -76,8 +101,7 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(@PathVariable Integer id) {
         return productRepository.findById(id)
                 .map(product -> {
-                    product.setIsActive(false); // Soft delete
-                    productRepository.save(product);
+                    productRepository.delete(product); // Hard delete - xóa hẳn khỏi database
                     return ResponseEntity.noContent().<Void>build();
                 })
                 .orElse(ResponseEntity.notFound().build());
