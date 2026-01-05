@@ -75,11 +75,23 @@ export const useCartStore = defineStore('cart', {
     },
 
     async clearCart() {
-      try {
-        await api.clearCart(this.userId)
+      const authStore = useAuthStore()
+      if (!authStore.user?.id) {
+        console.error('User ID not found')
         this.items = []
+        return
+      }
+      
+      try {
+        console.log('Clearing cart for user:', authStore.user.id)
+        await api.clearCart(authStore.user.id)
+        this.items = []
+        console.log('Cart cleared successfully')
       } catch (error) {
         console.error('Error clearing cart:', error)
+        // Vẫn clear local state để UI được cập nhật
+        this.items = []
+        throw error
       }
     }
   }

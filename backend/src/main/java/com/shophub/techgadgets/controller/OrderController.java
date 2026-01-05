@@ -50,6 +50,12 @@ public class OrderController {
         return userRepository.findById(order.getUser().getId())
                 .map(user -> {
                     order.setUser(user);
+                    
+                    // Set bidirectional relationship for OrderItems
+                    if (order.getOrderItems() != null) {
+                        order.getOrderItems().forEach(item -> item.setOrder(order));
+                    }
+                    
                     return ResponseEntity.ok(orderRepository.save(order));
                 })
                 .orElse(ResponseEntity.badRequest().build());

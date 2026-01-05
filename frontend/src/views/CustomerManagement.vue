@@ -312,10 +312,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotification } from '../composables/useNotification'
 import api from '../services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { error: showError } = useNotification()
 
 const customers = ref([])
 const orders = ref([])
@@ -366,14 +368,14 @@ const fetchCustomers = async () => {
   try {
     const response = await api.getUsers()
     customers.value = response.data
-  } catch (error) {
-    console.error('Lỗi khi tải khách hàng:', error)
+  } catch (err) {
+    console.error('Lỗi khi tải khách hàng:', err)
     
-    if (error.response?.status === 403) {
-      alert('❌ Bạn không có quyền truy cập!\n\nChỉ tài khoản ADMIN mới có thể quản lý khách hàng.\n\nVui lòng đăng nhập với tài khoản admin.')
+    if (err.response?.status === 403) {
+      showError('Bạn không có quyền truy cập!\n\nChỉ tài khoản ADMIN mới có thể quản lý khách hàng.\n\nVui lòng đăng nhập với tài khoản admin.')
       router.push('/admin')
-    } else if (error.response?.status === 401) {
-      alert('❌ Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.')
+    } else if (err.response?.status === 401) {
+      showError('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.')
       authStore.logout()
       router.push('/login')
     } else {

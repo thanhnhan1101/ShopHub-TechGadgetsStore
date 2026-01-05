@@ -200,10 +200,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotification } from '../composables/useNotification'
 import api from '../services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { success, error } = useNotification()
 
 const categories = ref([])
 const products = ref([])
@@ -238,10 +240,10 @@ const fetchCategories = async () => {
     const response = await api.getCategories()
     categories.value = response.data
     console.log('Categories loaded:', categories.value.length)
-  } catch (error) {
-    console.error('Lỗi khi tải danh mục:', error)
-    if (error.response?.status !== 401) {
-      alert('Không thể tải danh sách danh mục!')
+  } catch (err) {
+    console.error('Lỗi khi tải danh mục:', err)
+    if (err.response?.status !== 401) {
+      error('Không thể tải danh sách danh mục!')
     }
   }
 }
@@ -259,16 +261,16 @@ const saveCategory = async () => {
   try {
     if (showEditModal.value) {
       await api.updateCategory(form.value.id, form.value)
-      alert('Cập nhật danh mục thành công!')
+      success('Cập nhật danh mục thành công!')
     } else {
       await api.createCategory(form.value)
-      alert('Thêm danh mục mới thành công!')
+      success('Thêm danh mục mới thành công!')
     }
     closeModal()
     fetchCategories()
-  } catch (error) {
-    console.error('Lỗi khi lưu danh mục:', error)
-    alert('Không thể lưu danh mục!')
+  } catch (err) {
+    console.error('Lỗi khi lưu danh mục:', err)
+    error('Không thể lưu danh mục!')
   }
 }
 
@@ -282,11 +284,11 @@ const deleteCategory = async (id) => {
   
   try {
     await api.deleteCategory(id)
-    alert('✅ Xóa danh mục vĩnh viễn thành công!')
+    success('Xóa danh mục vĩnh viễn thành công!')
     fetchCategories()
-  } catch (error) {
-    console.error('Lỗi khi xóa danh mục:', error)
-    alert('❌ Không thể xóa danh mục! Có thể danh mục đang có sản phẩm.')
+  } catch (err) {
+    console.error('Lỗi khi xóa danh mục:', err)
+    error('Không thể xóa danh mục! Có thể danh mục đang có sản phẩm.')
   }
 }
 
@@ -296,11 +298,11 @@ const toggleStatus = async (category) => {
   
   try {
     await api.toggleCategoryStatus(category.id)
-    alert(`✅ ${action.charAt(0).toUpperCase() + action.slice(1)} thành công!`)
+    success(`${action.charAt(0).toUpperCase() + action.slice(1)} thành công!`)
     fetchCategories()
-  } catch (error) {
-    console.error('Lỗi khi thay đổi trạng thái:', error)
-    alert('❌ Không thể thay đổi trạng thái!')
+  } catch (err) {
+    console.error('Lỗi khi thay đổi trạng thái:', err)
+    error('Không thể thay đổi trạng thái!')
   }
 }
 

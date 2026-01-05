@@ -47,10 +47,16 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/**").permitAll()
                         .requestMatchers("/api/products/**").hasRole("ADMIN")
                         
+                        // Cart - require authentication (CUSTOMER or ADMIN)
+                        .requestMatchers("/api/cart/**").authenticated()
+                        
+                        // Orders - require authentication (CUSTOMER or ADMIN)
+                        .requestMatchers("/api/orders/**").authenticated()
+                        
                         // Users - require ADMIN
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         
-                        // Upload - require authentication
+                        // Upload - require ADMIN
                         .requestMatchers("/api/upload/**").hasRole("ADMIN")
                         
                         // All other requests require authentication

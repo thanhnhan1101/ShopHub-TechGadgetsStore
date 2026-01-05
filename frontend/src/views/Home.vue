@@ -243,22 +243,25 @@ export default {
     })
 
     const getCategoryIcon = (categoryName) => {
-      const iconMap = {
-        'Smartphones': '📱',
-        'Laptops': '💻',
-        'Headphones': '🎧',
-        'Smartwatches': '⌚',
-        'Tablets': '📱',
-        'Cameras': '📷',
-        'Gaming': '🎮',
-        'Accessories': '🔌',
-        'Audio': '🔊',
-        'Wearables': '⌚',
-        'Computers': '🖥️',
-        'Storage': '💾',
-        'Networking': '📡'
-      }
-      return iconMap[categoryName] || '📦'
+      const name = categoryName.toLowerCase()
+      
+      // Mapping linh hoạt với nhiều từ khóa
+      if (name.includes('phone') || name.includes('smartphone') || name.includes('điện thoại')) return '📱'
+      if (name.includes('laptop') || name.includes('máy tính xách tay')) return '💻'
+      if (name.includes('headphone') || name.includes('tai nghe')) return '🎧'
+      if (name.includes('watch') || name.includes('đồng hồ')) return '⌚'
+      if (name.includes('tablet') || name.includes('máy tính bảng')) return '📱'
+      if (name.includes('camera') || name.includes('máy ảnh')) return '📷'
+      if (name.includes('gaming') || name.includes('game') || name.includes('chơi game')) return '🎮'
+      if (name.includes('accessory') || name.includes('accessories') || name.includes('phụ kiện')) return '🔌'
+      if (name.includes('audio') || name.includes('âm thanh')) return '🔊'
+      if (name.includes('wearable') || name.includes('đeo tay')) return '⌚'
+      if (name.includes('computer') || name.includes('pc') || name.includes('máy tính')) return '🖥️'
+      if (name.includes('storage') || name.includes('lưu trữ')) return '💾'
+      if (name.includes('network') || name.includes('mạng')) return '📡'
+      if (name.includes('tivi') || name.includes('tv') || name.includes('điện máy')) return '📺'
+      
+      return '📦'
     }
 
     const getCategoryCount = (categoryId) => {

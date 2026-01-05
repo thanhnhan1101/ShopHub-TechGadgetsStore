@@ -6,6 +6,7 @@
     </main>
     <router-view v-else />
     <Footer v-if="!isAuthPage" />
+    <NotificationContainer />
   </div>
 </template>
 
@@ -14,13 +15,15 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
+import NotificationContainer from './components/NotificationContainer.vue'
 import './assets/global.css'
 
 export default {
   name: 'App',
   components: {
     Header,
-    Footer
+    Footer,
+    NotificationContainer
   },
   setup() {
     const route = useRoute()

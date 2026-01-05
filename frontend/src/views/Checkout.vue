@@ -13,12 +13,31 @@
         <form @submit.prevent="placeOrder">
           <div class="form-group">
             <label>Họ và Tên *</label>
-            <input v-model="form.fullName" type="text" required placeholder="Nhập họ và tên đầy đủ" />
+            <input 
+              v-model="form.fullName" 
+              type="text" 
+              required 
+              placeholder="Nhập họ và tên đầy đủ"
+              pattern="[^0-9]*"
+              title="Tên không được chứa số"
+              @input="validateName"
+            />
+            <span v-if="errors.fullName" class="error-message">{{ errors.fullName }}</span>
           </div>
 
           <div class="form-group">
             <label>Số Điện Thoại *</label>
-            <input v-model="form.phone" type="tel" required placeholder="Nhập số điện thoại" />
+            <input 
+              v-model="form.phone" 
+              type="tel" 
+              required 
+              placeholder="Nhập 10 số điện thoại"
+              pattern="[0-9]{10}"
+              maxlength="10"
+              title="Số điện thoại phải đúng 10 số"
+              @input="validatePhone"
+            />
+            <span v-if="errors.phone" class="error-message">{{ errors.phone }}</span>
           </div>
 
           <div class="form-group">
@@ -105,6 +124,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
+import { useAuthStore } from '../stores/auth'
+import { useNotification } from '../composables/useNotification'
 import api from '../services/api'
 
 export default {
@@ -112,7 +133,10 @@ export default {
   setup() {
     const router = useRouter()
     const cartStore = useCartStore()
+    const authStore = useAuthStore()
+    const { success, error, warning } = useNotification()
     const submitting = ref(false)
+    const showPaymentModal = ref(false)
 
     const form = ref({
       fullName: '',
@@ -122,22 +146,99 @@ export default {
       notes: ''
     })
 
+    const paymentForm = ref({
+      cardNumber: '',
+      cardName: '',
+      expiry: '',
+      cvv: ''
+    })
+
+    const errors = ref({
+      fullName: '',
+      phone: ''
+    })
+
+    const validateName = (e) => {
+      const value = e.target.value
+      if (/\d/.test(value)) {
+        errors.value.fullName = 'Tên không được chứa số'
+        form.value.fullName = value.replace(/\d/g, '')
+      } else {
+        errors.value.fullName = ''
+      }
+    }
+
+    const validatePhone = (e) => {
+      const value = e.target.value
+      // Chỉ cho phép số
+      form.value.phone = value.replace(/\D/g, '')
+      
+      if (form.value.phone.length > 0 && form.value.phone.length < 10) {
+        errors.value.phone = `Cần ${10 - form.value.phone.length} số nữa`
+      } else if (form.value.phone.length === 10) {
+        errors.value.phone = ''
+      } else {
+        errors.value.phone = ''
+      }
+    }
+
     const placeOrder = async () => {
       if (cartStore.items.length === 0) {
-        alert('Giỏ hàng của bạn đang trống')
+        warning('Giỏ hàng của bạn đang trống')
         return
       }
 
+      if (!authStore.user || !authStore.user.id) {
+        warning('Vui lòng đăng nhập để đặt hàng')
+        router.push('/login')
+        return
+      }
+
+      // Nếu chọn thanh toán online, hiện modal thanh toán
+      if (form.value.paymentMethod === 'Credit Card' || form.value.paymentMethod === 'E-wallet') {
+        showPaymentModal.value = true
+        return
+      }
+
+      // COD - tạo đơn ngay với status PENDING
+      await createOrder('PENDING')
+    }
+
+    const processPayment = async () => {
+      // Giả lập xử lý thanh toán
+      submitting.value = true
+      
+      // Kiểm tra thông tin thanh toán cơ bản
+      if (form.value.paymentMethod === 'Credit Card') {
+        if (!paymentForm.value.cardNumber || !paymentForm.value.cardName || 
+            !paymentForm.value.expiry || !paymentForm.value.cvv) {
+          warning('Vui lòng điền đầy đủ thông tin thẻ')
+          submitting.value = false
+          return
+        }
+      }
+
+      // Giả lập delay thanh toán
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      showPaymentModal.value = false
+      
+      // Tạo đơn với status PAID (đã thanh toán)
+      await createOrder('PAID')
+    }
+
+    const createOrder = async (status) => {
       submitting.value = true
       try {
         const order = {
-          user: { id: cartStore.userId },
+          user: { id: authStore.user.id },
           fullName: form.value.fullName,
           phone: form.value.phone,
           address: form.value.address,
           paymentMethod: form.value.paymentMethod,
           notes: form.value.notes,
           totalAmount: cartStore.cartTotal,
+          status: status, // PENDING cho COD, PAID cho thanh toán trước
           orderItems: cartStore.items.map(item => ({
             product: { id: item.product.id },
             productName: item.product.name,
@@ -149,13 +250,26 @@ export default {
         await api.createOrder(order)
         await cartStore.clearCart()
         
-        alert('Đặt hàng thành công! Cảm ơn bạn đã mua hàng.')
+        const message = status === 'PAID' 
+          ? 'Thanh toán thành công! Đơn hàng của bạn đang được chuẩn bị.' 
+          : 'Đặt hàng thành công! Bạn sẽ thanh toán khi nhận hàng.'
+        success(message)
         router.push('/orders')
-      } catch (error) {
-        console.error('Error placing order:', error)
-        alert('Đặt hàng thất bại. Vui lòng thử lại.')
+      } catch (err) {
+        console.error('Error placing order:', err)
+        error('Đặt hàng thất bại. Vui lòng thử lại.')
       } finally {
         submitting.value = false
+      }
+    }
+
+    const closePaymentModal = () => {
+      showPaymentModal.value = false
+      paymentForm.value = {
+        cardNumber: '',
+        cardName: '',
+        expiry: '',
+        cvv: ''
       }
     }
 
@@ -171,14 +285,28 @@ export default {
       if (cartStore.items.length === 0) {
         cartStore.fetchCart()
       }
+      
+      // Tự động điền thông tin từ user đã đăng nhập
+      if (authStore.user) {
+        form.value.fullName = authStore.user.fullName || authStore.user.username || ''
+        form.value.phone = authStore.user.phone || ''
+        form.value.address = authStore.user.address || ''
+      }
     })
 
     return {
       form,
       cartStore,
       submitting,
+      errors,
+      showPaymentModal,
+      paymentForm,
       placeOrder,
-      formatPrice
+      processPayment,
+      closePaymentModal,
+      formatPrice,
+      validateName,
+      validatePhone
     }
   }
 }
@@ -284,6 +412,31 @@ export default {
   background-repeat: no-repeat;
   background-position: right 18px center;
   padding-right: 45px;
+}
+
+.error-message {
+  display: block;
+  color: #e74c3c;
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 8px;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.form-group input:invalid:not(:placeholder-shown),
+.form-group textarea:invalid:not(:placeholder-shown) {
+  border-color: #e74c3c;
+}
+
+.form-group input:valid:not(:placeholder-shown),
+.form-group textarea:valid:not(:placeholder-shown) {
+  border-color: #27ae60;
 }
 
 .btn-checkout {

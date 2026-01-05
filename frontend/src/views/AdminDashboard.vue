@@ -233,11 +233,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotification } from '../composables/useNotification'
 import api from '../services/api'
 import Chart from 'chart.js/auto'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { error: showError } = useNotification()
 
 const userName = computed(() => authStore.user?.fullName || 'Admin')
 
@@ -369,10 +371,10 @@ const fetchDashboardData = async () => {
     // Cập nhật charts sau khi có dữ liệu
     updateCharts()
 
-  } catch (error) {
-    console.error('Error fetching dashboard data:', error)
-    if (error.response?.status === 403) {
-      alert('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập với tài khoản Admin.')
+  } catch (err) {
+    console.error('Error fetching dashboard data:', err)
+    if (err.response?.status === 403) {
+      showError('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập với tài khoản Admin.')
       router.push('/login')
     }
   } finally {

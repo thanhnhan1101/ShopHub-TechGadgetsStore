@@ -5,6 +5,7 @@ import com.shophub.techgadgets.repository.CartItemRepository;
 import com.shophub.techgadgets.repository.ProductRepository;
 import com.shophub.techgadgets.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -78,8 +79,14 @@ public class CartController {
     }
 
     @DeleteMapping("/user/{userId}")
+    @Transactional
     public ResponseEntity<Void> clearCart(@PathVariable Integer userId) {
-        cartItemRepository.deleteByUserId(userId);
-        return ResponseEntity.noContent().build();
+        try {
+            cartItemRepository.deleteByUserId(userId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

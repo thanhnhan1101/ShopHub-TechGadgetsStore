@@ -111,9 +111,9 @@
             <select v-model="filterStatus" class="filter-select">
               <option value="">Tất cả trạng thái</option>
               <option value="PENDING">Chờ xử lý</option>
-              <option value="PROCESSING">Đang xử lý</option>
-              <option value="SHIPPING">Đang giao</option>
-              <option value="COMPLETED">Hoàn thành</option>
+              <option value="PAID">Đã thanh toán</option>
+              <option value="SHIPPED">Đang giao hàng</option>
+              <option value="DELIVERED">Đã giao hàng</option>
               <option value="CANCELLED">Đã hủy</option>
             </select>
           </div>
@@ -139,7 +139,8 @@
                 </td>
                 <td>
                   <div class="customer-info">
-                    <div class="customer-name">{{ getUserName(order.userId) }}</div>
+                    <div class="customer-name">{{ order.fullName || 'N/A' }}</div>
+                    <div class="customer-phone" v-if="order.phone">{{ order.phone }}</div>
                   </div>
                 </td>
                 <td>
@@ -155,9 +156,9 @@
                     :class="['status-select', getStatusClass(order.status)]"
                   >
                     <option value="PENDING">⏳ Chờ xử lý</option>
-                    <option value="PROCESSING">⚙️ Đang xử lý</option>
-                    <option value="SHIPPING">🚚 Đang giao</option>
-                    <option value="COMPLETED">✅ Hoàn thành</option>
+                    <option value="PAID">💳 Đã thanh toán</option>
+                    <option value="SHIPPED">🚚 Đang giao hàng</option>
+                    <option value="DELIVERED">✅ Đã giao hàng</option>
                     <option value="CANCELLED">❌ Đã hủy</option>
                   </select>
                 </td>
@@ -195,7 +196,11 @@
             <h3>Thông tin khách hàng</h3>
             <div class="detail-row">
               <span class="label">Tên:</span>
-              <span class="value">{{ getUserName(selectedOrder.userId) }}</span>
+              <span class="value">{{ selectedOrder.fullName || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Số điện thoại:</span>
+              <span class="value">{{ selectedOrder.phone || 'N/A' }}</span>
             </div>
             <div class="detail-row">
               <span class="label">Địa chỉ:</span>
@@ -247,10 +252,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotification } from '../composables/useNotification'
 import api from '../services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { success, error } = useNotification()
 
 const orders = ref([])
 const users = ref([])
@@ -263,11 +270,11 @@ const pendingOrders = computed(() =>
   orders.value.filter(o => o.status === 'PENDING').length
 )
 const shippingOrders = computed(() => 
-  orders.value.filter(o => o.status === 'SHIPPING').length
+  orders.value.filter(o => o.status === 'SHIPPED').length
 )
 const totalRevenue = computed(() => 
   orders.value
-    .filter(o => o.status === 'COMPLETED')
+    .filter(o => o.status === 'DELIVERED')
     .reduce((sum, o) => sum + o.totalAmount, 0)
 )
 
@@ -279,7 +286,8 @@ const filteredOrders = computed(() => {
     filtered = filtered.filter(o => 
       o.id.toString().includes(query) || 
       o.address.toLowerCase().includes(query) ||
-      getUserName(o.userId).toLowerCase().includes(query)
+      (o.fullName && o.fullName.toLowerCase().includes(query)) ||
+      (o.phone && o.phone.includes(query))
     )
   }
 
@@ -287,7 +295,23 @@ const filteredOrders = computed(() => {
     filtered = filtered.filter(o => o.status === filterStatus.value)
   }
 
-  return filtered.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
+  // Sắp xếp theo thứ tự ưu tiên giao hàng
+  const statusPriority = {
+    'PENDING': 1,      // Chờ xử lý - cần chuẩn bị hàng (ưu tiên cao nhất)
+    'PAID': 2,         // Đã thanh toán trước - cần chuẩn bị giao
+    'SHIPPED': 3,      // Đang giao hàng (bao gồm COD chưa thu tiền)
+    'DELIVERED': 4,    // Đã giao hàng & thu tiền thành công
+    'CANCELLED': 5     // Đã hủy - ưu tiên thấp nhất
+  }
+
+  return filtered.sort((a, b) => {
+    // Sắp xếp theo thứ tự ưu tiên trước
+    const priorityDiff = (statusPriority[a.status] || 999) - (statusPriority[b.status] || 999)
+    if (priorityDiff !== 0) return priorityDiff
+    
+    // Nếu cùng trạng thái, sắp xếp theo ngày đặt hàng (mới nhất trước)
+    return new Date(b.orderDate) - new Date(a.orderDate)
+  })
 })
 
 const fetchOrders = async () => {
@@ -296,7 +320,7 @@ const fetchOrders = async () => {
     orders.value = response.data
   } catch (error) {
     console.error('Lỗi khi tải đơn hàng:', error)
-    alert('Không thể tải danh sách đơn hàng!')
+    error('Không thể tải danh sách đơn hàng!')
   }
 }
 
@@ -312,10 +336,10 @@ const fetchUsers = async () => {
 const updateOrderStatus = async (order) => {
   try {
     await api.updateOrderStatus(order.id, order.status)
-    alert('Cập nhật trạng thái đơn hàng thành công!')
+    success('Cập nhật trạng thái đơn hàng thành công!')
   } catch (error) {
     console.error('Lỗi khi cập nhật trạng thái:', error)
-    alert('Không thể cập nhật trạng thái đơn hàng!')
+    error('Không thể cập nhật trạng thái đơn hàng!')
     fetchOrders() // Reload to revert changes
   }
 }
@@ -330,11 +354,11 @@ const deleteOrder = async (id) => {
   
   try {
     await api.delete(`/orders/${id}`)
-    alert('Xóa đơn hàng thành công!')
+    success('Xóa đơn hàng thành công!')
     fetchOrders()
   } catch (error) {
     console.error('Lỗi khi xóa đơn hàng:', error)
-    alert('Không thể xóa đơn hàng!')
+    error('Không thể xóa đơn hàng!')
   }
 }
 
@@ -364,9 +388,9 @@ const getUserName = (userId) => {
 const getStatusClass = (status) => {
   const statusMap = {
     'PENDING': 'pending',
-    'PROCESSING': 'processing',
-    'SHIPPING': 'shipping',
-    'COMPLETED': 'completed',
+    'PAID': 'paid',
+    'SHIPPED': 'shipping',
+    'DELIVERED': 'completed',
     'CANCELLED': 'cancelled'
   }
   return statusMap[status] || ''
@@ -375,9 +399,9 @@ const getStatusClass = (status) => {
 const getStatusText = (status) => {
   const statusMap = {
     'PENDING': '⏳ Chờ xử lý',
-    'PROCESSING': '⚙️ Đang xử lý',
-    'SHIPPING': '🚚 Đang giao',
-    'COMPLETED': '✅ Hoàn thành',
+    'PAID': '💳 Đã thanh toán',
+    'SHIPPED': '🚚 Đang giao hàng',
+    'DELIVERED': '✅ Đã giao hàng',
     'CANCELLED': '❌ Đã hủy'
   }
   return statusMap[status] || status
@@ -740,6 +764,11 @@ onMounted(() => {
   color: #856404;
 }
 
+.status-badge.paid {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
 .action-buttons {
   display: flex;
   gap: 8px;
@@ -899,6 +928,24 @@ onMounted(() => {
   font-size: 14px;
 }
 
+.customer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.customer-name {
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.customer-phone {
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .status-select {
   padding: 8px 12px;
   border: 2px solid transparent;
@@ -912,6 +959,11 @@ onMounted(() => {
 .status-select.pending {
   background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
   color: #856404;
+}
+
+.status-select.paid {
+  background: linear-gradient(135deg, #d1ecf1 0%, #a5d8ff 100%);
+  color: #0c5460;
 }
 
 .status-select.processing {

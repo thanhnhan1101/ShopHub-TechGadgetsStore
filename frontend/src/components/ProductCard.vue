@@ -1,7 +1,13 @@
 <template>
   <div class="product-card" @click="goToDetail">
     <div class="product-image">
-      <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" />
+      <img 
+        v-if="product.imageUrl && !imageError" 
+        :src="product.imageUrl" 
+        :alt="product.name"
+        loading="lazy"
+        @error="handleImageError"
+      />
       <div v-else class="placeholder-image">📱</div>
     </div>
     
@@ -26,10 +32,11 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import { useAuthStore } from '../stores/auth'
+import { useNotification } from '../composables/useNotification'
 
 export default {
   name: 'ProductCard',
@@ -43,6 +50,12 @@ export default {
     const router = useRouter()
     const cartStore = useCartStore()
     const authStore = useAuthStore()
+    const imageError = ref(false)
+    const { success, error, warning } = useNotification()
+    
+    const handleImageError = () => {
+      imageError.value = true
+    }
     
     const truncatedDescription = computed(() => {
       if (!props.product.description) return ''
@@ -96,23 +109,25 @@ export default {
       try {
         console.log('ProductCard - Adding to cart:', props.product)
         await cartStore.addToCart(props.product, 1)
-        alert('✅ Đã thêm sản phẩm vào giỏ hàng!')
-      } catch (error) {
-        console.error('ProductCard - Error adding to cart:', error)
-        console.error('Error response:', error.response)
-        if (error.response?.status === 403) {
-          alert('⚠️ Backend từ chối request. Có thể token đã hết hạn hoặc không hợp lệ.')
+        success('Đã thêm sản phẩm vào giỏ hàng!')
+      } catch (err) {
+        console.error('ProductCard - Error adding to cart:', err)
+        console.error('Error response:', err.response)
+        if (err.response?.status === 403) {
+          warning('Backend từ chối request. Có thể token đã hết hạn hoặc không hợp lệ.')
           if (confirm('Đăng nhập lại?')) {
             authStore.logout()
             router.push('/login')
           }
         } else {
-          alert('❌ Không thể thêm vào giỏ hàng')
+          error('Không thể thêm vào giỏ hàng')
         }
       }
     }
     
     return {
+      imageError,
+      handleImageError,
       truncatedDescription,
       stockClass,
       stockText,
@@ -143,39 +158,37 @@ export default {
 
 .product-image {
   width: 100%;
-  height: 240px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  height: 280px;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   position: relative;
+  padding: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .product-image::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.05) 100%);
+  display: none;
 }
 
 .product-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   transition: transform 0.4s ease;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.08));
 }
 
 .product-card:hover .product-image img {
-  transform: scale(1.08);
+  transform: scale(1.05);
 }
 
 .placeholder-image {
-  font-size: 72px;
-  opacity: 0.6;
+  font-size: 80px;
+  opacity: 0.3;
   z-index: 1;
 }
 
