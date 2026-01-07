@@ -115,6 +115,22 @@ export default {
     })
   },
 
+  // Upload nhiều ảnh cùng lúc
+  uploadMultipleImages(files) {
+    const formData = new FormData()
+    
+    // Thêm tất cả files vào FormData
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i])
+    }
+    
+    return api.post('/upload/images', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
   // Cart
   getCart(userId) {
     return api.get(`/cart/${userId}`)

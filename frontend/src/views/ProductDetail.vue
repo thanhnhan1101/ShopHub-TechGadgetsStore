@@ -16,8 +16,9 @@
 
       <div class="detail-container">
         <div class="image-section">
+          <!-- Main Image Display -->
           <div class="product-image-large">
-            <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" />
+            <img v-if="currentImage" :src="currentImage" :alt="product.name" />
             <div v-else class="placeholder-large">
               <span class="icon">📱</span>
               <p>Không có ảnh</p>
@@ -27,6 +28,19 @@
             </div>
             <div class="image-badge out" v-if="product.stock === 0">
               ❌ Hết hàng
+            </div>
+          </div>
+
+          <!-- Thumbnail Gallery -->
+          <div v-if="productImages.length > 1" class="thumbnail-gallery">
+            <div 
+              v-for="(image, index) in productImages" 
+              :key="index"
+              class="thumbnail-item"
+              :class="{ active: currentImage === image }"
+              @click="currentImage = image"
+            >
+              <img :src="image" :alt="product.name + ' - ' + (index + 1)" />
             </div>
           </div>
         </div>
@@ -138,6 +152,24 @@ export default {
     const product = ref(null)
     const loading = ref(false)
     const quantity = ref(1)
+    const currentImage = ref('')
+
+    // Computed: Lấy danh sách ảnh của sản phẩm
+    const productImages = computed(() => {
+      if (!product.value) return []
+      
+      // Nếu có images array (nhiều ảnh)
+      if (product.value.images && product.value.images.length > 0) {
+        return product.value.images.map(img => img.imageUrl)
+      }
+      
+      // Fallback: imageUrl cũ (1 ảnh)
+      if (product.value.imageUrl) {
+        return [product.value.imageUrl]
+      }
+      
+      return []
+    })
 
     const stockClass = computed(() => {
       if (!product.value) return ''
@@ -172,6 +204,11 @@ export default {
       try {
         const response = await api.getProductById(route.params.id)
         product.value = response.data
+        
+        // Set ảnh đầu tiên làm ảnh hiện tại
+        if (productImages.value.length > 0) {
+          currentImage.value = productImages.value[0]
+        }
       } catch (error) {
         console.error('Error fetching product:', error)
       } finally {
@@ -213,6 +250,8 @@ export default {
       product,
       loading,
       quantity,
+      currentImage,
+      productImages,
       stockClass,
       stockText,
       stockIcon,
@@ -375,6 +414,39 @@ export default {
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
+}
+
+.thumbnail-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.thumbnail-item {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+}
+
+.thumbnail-item:hover {
+  border-color: #667eea;
+  transform: scale(1.05);
+}
+
+.thumbnail-item.active {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.thumbnail-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .info-section {

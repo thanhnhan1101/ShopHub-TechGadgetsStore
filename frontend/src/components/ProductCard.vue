@@ -2,8 +2,8 @@
   <div class="product-card" @click="goToDetail">
     <div class="product-image">
       <img 
-        v-if="product.imageUrl && !imageError" 
-        :src="product.imageUrl" 
+        v-if="productImage && !imageError" 
+        :src="productImage" 
         :alt="product.name"
         loading="lazy"
         @error="handleImageError"
@@ -52,6 +52,16 @@ export default {
     const authStore = useAuthStore()
     const imageError = ref(false)
     const { success, error, warning } = useNotification()
+    
+    // Lấy ảnh sản phẩm - hỗ trợ cả images array và imageUrl cũ
+    const productImage = computed(() => {
+      // Ưu tiên lấy từ images array (new format)
+      if (props.product.images && props.product.images.length > 0) {
+        return props.product.images[0].imageUrl
+      }
+      // Fallback sang imageUrl cũ (backward compatibility)
+      return props.product.imageUrl || null
+    })
     
     const handleImageError = () => {
       imageError.value = true
@@ -127,6 +137,7 @@ export default {
     
     return {
       imageError,
+      productImage,
       handleImageError,
       truncatedDescription,
       stockClass,
@@ -148,6 +159,9 @@ export default {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   border: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .product-card:hover {
@@ -167,6 +181,7 @@ export default {
   position: relative;
   padding: 20px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .product-image::after {
@@ -194,14 +209,18 @@ export default {
 
 .product-info {
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .product-name {
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 700;
   margin-bottom: 10px;
   color: #2c3e50;
   line-height: 1.4;
+  height: 50px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -212,13 +231,13 @@ export default {
   font-size: 14px;
   color: #7f8c8d;
   margin-bottom: 16px;
-  min-height: 42px;
+  height: 63px;
   line-height: 1.5;
-  white-space: pre-line;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .product-footer {
@@ -228,15 +247,17 @@ export default {
   margin-bottom: 16px;
   padding-top: 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin-top: auto;
 }
 
 .product-price {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  line-height: 1;
 }
 
 .product-stock {
@@ -245,6 +266,7 @@ export default {
   padding: 6px 12px;
   border-radius: 20px;
   letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
 .in-stock {
@@ -278,6 +300,7 @@ export default {
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 .add-to-cart-btn:hover {
@@ -292,6 +315,7 @@ export default {
 .add-to-cart-btn:disabled {
   background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
   cursor: not-allowed;
+  opacity: 0.6;
   box-shadow: none;
 }
 </style>

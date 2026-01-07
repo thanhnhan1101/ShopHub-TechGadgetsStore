@@ -1,13 +1,14 @@
 package com.shophub.techgadgets.controller;
 
+import com.shophub.techgadgets.dto.ProductRequest;
 import com.shophub.techgadgets.entity.Product;
+import com.shophub.techgadgets.entity.ProductImage;
 import com.shophub.techgadgets.repository.CategoryRepository;
 import com.shophub.techgadgets.repository.ProductRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-
 import java.util.List;
 
 @RestController
@@ -52,44 +53,83 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+    public ResponseEntity<Product> createProduct(@RequestBody ProductRequest request) {
         // Validate category
-        if (product.getCategory() == null || product.getCategory().getId() == null) {
+        if (request.getCategoryId() == null) {
             return ResponseEntity.badRequest().build();
         }
         
         // Validate price and stock
-        if (product.getPrice() == null || product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseEntity.badRequest().build();
         }
         
-        if (product.getStock() == null || product.getStock() < 0) {
+        if (request.getStock() == null || request.getStock() < 0) {
             return ResponseEntity.badRequest().build();
         }
         
-        return categoryRepository.findById(product.getCategory().getId())
+        return categoryRepository.findById(request.getCategoryId())
                 .map(category -> {
+                    Product product = new Product();
                     product.setCategory(category);
-                    // imageUrl, name, description, price, stock, isActive đã có trong product object
+                    product.setName(request.getName());
+                    product.setDescription(request.getDescription());
+                    product.setPrice(request.getPrice());
+                    product.setStock(request.getStock());
+                    product.setIsActive(request.getIsActive());
+                    
+                    // Xử lý nhiều ảnh
+                    List<String> imageUrls = request.getImageUrls();
+                    if (imageUrls != null && !imageUrls.isEmpty()) {
+                        for (int i = 0; i < imageUrls.size(); i++) {
+                            ProductImage image = new ProductImage();
+                            image.setImageUrl(imageUrls.get(i));
+                            image.setDisplayOrder(i);
+                            image.setIsPrimary(i == 0); // Ảnh đầu tiên là ảnh chính
+                            product.addImage(image);
+                        }
+                    } else if (request.getImageUrl() != null && !request.getImageUrl().isEmpty()) {
+                        // Backward compatibility: hỗ trợ imageUrl đơn
+                        product.setImageUrl(request.getImageUrl());
+                    }
+                    
                     return ResponseEntity.ok(productRepository.save(product));
                 })
                 .orElse(ResponseEntity.badRequest().build());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Integer id, @RequestBody Product productDetails) {
+    public ResponseEntity<Product> updateProduct(@PathVariable Integer id, @RequestBody ProductRequest request) {
         return productRepository.findById(id)
                 .map(product -> {
-                    product.setName(productDetails.getName());
-                    product.setDescription(productDetails.getDescription());
-                    product.setPrice(productDetails.getPrice());
-                    product.setStock(productDetails.getStock());
-                    product.setImageUrl(productDetails.getImageUrl());
-                    product.setIsActive(productDetails.getIsActive());
+                    product.setName(request.getName());
+                    product.setDescription(request.getDescription());
+                    product.setPrice(request.getPrice());
+                    product.setStock(request.getStock());
+                    product.setIsActive(request.getIsActive());
                     
-                    if (productDetails.getCategory() != null && productDetails.getCategory().getId() != null) {
-                        categoryRepository.findById(productDetails.getCategory().getId())
+                    if (request.getCategoryId() != null) {
+                        categoryRepository.findById(request.getCategoryId())
                                 .ifPresent(product::setCategory);
+                    }
+                    
+                    // Xử lý cập nhật ảnh
+                    List<String> imageUrls = request.getImageUrls();
+                    if (imageUrls != null && !imageUrls.isEmpty()) {
+                        // Xóa tất cả ảnh cũ
+                        product.clearImages();
+                        
+                        // Thêm ảnh mới
+                        for (int i = 0; i < imageUrls.size(); i++) {
+                            ProductImage image = new ProductImage();
+                            image.setImageUrl(imageUrls.get(i));
+                            image.setDisplayOrder(i);
+                            image.setIsPrimary(i == 0);
+                            product.addImage(image);
+                        }
+                    } else if (request.getImageUrl() != null) {
+                        // Backward compatibility
+                        product.setImageUrl(request.getImageUrl());
                     }
                     
                     return ResponseEntity.ok(productRepository.save(product));

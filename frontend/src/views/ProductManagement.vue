@@ -139,7 +139,11 @@
             <tbody>
               <tr v-for="product in filteredProducts" :key="product.id">
                 <td>
-                  <img :src="product.imageUrl" :alt="product.name" class="product-image" />
+                  <img 
+                    :src="getProductImage(product)" 
+                    :alt="product.name" 
+                    class="product-image" 
+                  />
                 </td>
                 <td>
                   <div class="product-info">
@@ -218,80 +222,14 @@
               </option>
             </select>
           </div>
-          <div class="form-group">
-            <label>Hình ảnh sản phẩm *</label>
-            
-            <!-- Tab chọn cách upload -->
-            <div class="upload-tabs">
-              <button 
-                type="button"
-                :class="['tab-btn', { active: uploadMethod === 'file' }]"
-                @click="uploadMethod = 'file'"
-              >
-                📁 Upload File
-              </button>
-              <button 
-                type="button"
-                :class="['tab-btn', { active: uploadMethod === 'url' }]"
-                @click="uploadMethod = 'url'"
-              >
-                🔗 Nhập URL
-              </button>
-            </div>
 
-            <!-- Upload File -->
-            <div v-if="uploadMethod === 'file'" class="upload-area">
-              <input 
-                type="file" 
-                ref="fileInput"
-                accept="image/*"
-                @change="handleFileUpload"
-                class="file-input"
-                id="fileUpload"
-              />
-              <label for="fileUpload" class="file-label">
-                <div class="upload-icon">📤</div>
-                <div class="upload-text">
-                  <strong>Click để chọn ảnh</strong>
-                  <span>hoặc kéo thả file vào đây</span>
-                </div>
-                <div class="upload-hint">PNG, JPG, GIF (Max 5MB)</div>
-              </label>
-            </div>
+          <!-- Multi Image Upload Component -->
+          <MultiImageUpload 
+            v-model="form.imageUrls"
+            :max-images="10"
+            :max-file-size="5"
+          />
 
-            <!-- Nhập URL -->
-            <div v-if="uploadMethod === 'url'">
-              <input 
-                v-model="form.imageUrl" 
-                type="url" 
-                required
-                placeholder="https://example.com/image.jpg" 
-                @input="previewImage"
-                class="url-input"
-              />
-              <div class="image-upload-hint">
-                💡 <strong>Cách lấy URL:</strong> Upload ảnh lên 
-                <a href="https://imgur.com/upload" target="_blank">Imgur.com</a> 
-                → Copy "Direct Link"
-              </div>
-            </div>
-
-            <!-- Preview ảnh -->
-            <div v-if="imagePreview" class="image-preview">
-              <img :src="imagePreview" alt="Preview" @error="imageError = true" />
-              <button type="button" @click="removeImage" class="remove-image-btn">
-                🗑️ Xóa ảnh
-              </button>
-              <div v-if="imageError" class="image-error">
-                ❌ Ảnh không hợp lệ hoặc không truy cập được
-              </div>
-            </div>
-
-            <!-- Thông báo nếu chưa có ảnh -->
-            <div v-if="!imagePreview && !form.imageUrl" class="no-image-warning">
-              ⚠️ Bạn chưa thêm hình ảnh cho sản phẩm
-            </div>
-          </div>
           <div class="form-group checkbox">
             <label>
               <input v-model="form.isActive" type="checkbox">
@@ -315,6 +253,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
+import MultiImageUpload from '../components/MultiImageUpload.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -332,13 +271,9 @@ const form = ref({
   price: 0,
   stock: 0,
   categoryId: '',
-  imageUrl: '',
+  imageUrls: [], // Thay đổi từ imageUrl thành imageUrls (array)
   isActive: true
 })
-const imagePreview = ref('')
-const imageError = ref(false)
-const uploadMethod = ref('file')
-const fileInput = ref(null)
 
 const activeProducts = computed(() => products.value.filter(p => p.isActive).length)
 const lowStockProducts = computed(() => products.value.filter(p => p.stock < 10).length)
@@ -394,9 +329,9 @@ const fetchCategories = async () => {
 
 const saveProduct = async () => {
   try {
-    // Validate imageUrl
-    if (!form.value.imageUrl || form.value.imageUrl.trim() === '') {
-      alert('❌ Vui lòng thêm hình ảnh cho sản phẩm!')
+    // Validate images
+    if (!form.value.imageUrls || form.value.imageUrls.length === 0) {
+      alert('❌ Vui lòng thêm ít nhất 1 hình ảnh cho sản phẩm!')
       return
     }
 
@@ -406,15 +341,13 @@ const saveProduct = async () => {
       description: form.value.description,
       price: parseFloat(form.value.price),
       stock: parseInt(form.value.stock),
-      imageUrl: form.value.imageUrl,
-      isActive: form.value.isActive,
-      category: {
-        id: parseInt(form.value.categoryId)
-      }
+      categoryId: parseInt(form.value.categoryId),
+      imageUrls: form.value.imageUrls, // Gửi array URLs
+      isActive: form.value.isActive
     }
 
     console.log('📤 Sending product data:', productData)
-    console.log('🖼️ Image URL:', form.value.imageUrl)
+    console.log('🖼️ Image URLs:', form.value.imageUrls)
 
     if (showEditModal.value) {
       await api.updateProduct(form.value.id, productData)
@@ -440,71 +373,27 @@ const editProduct = (product) => {
     description: product.description,
     price: product.price,
     stock: product.stock,
-    imageUrl: product.imageUrl,
+    imageUrls: product.images && product.images.length > 0 
+      ? product.images.map(img => img.imageUrl)
+      : (product.imageUrl ? [product.imageUrl] : []), // Backward compatibility
     isActive: product.isActive,
     categoryId: product.category?.id || product.categoryId
   }
-  imagePreview.value = product.imageUrl
-  imageError.value = false
-  uploadMethod.value = product.imageUrl && product.imageUrl.startsWith('data:') ? 'file' : 'url'
   showEditModal.value = true
 }
 
-const previewImage = () => {
-  imageError.value = false
-  if (form.value.imageUrl) {
-    imagePreview.value = form.value.imageUrl
-  } else {
-    imagePreview.value = ''
-  }
-}
-
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  // Kiểm tra dung lượng file (max 5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    alert('❌ File quá lớn! Vui lòng chọn ảnh nhỏ hơn 5MB')
-    return
-  }
-
-  // Kiểm tra loại file
-  if (!file.type.startsWith('image/')) {
-    alert('❌ Vui lòng chọn file ảnh (PNG, JPG, GIF)')
-    return
-  }
-
-  try {
-    // Hiển thị preview ngay lập tức
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      imagePreview.value = e.target.result
-    }
-    reader.readAsDataURL(file)
-
-    // Upload lên Cloudinary
-    const response = await api.uploadImage(file)
-    form.value.imageUrl = response.data.imageUrl
-    imageError.value = false
-    
-    // Cập nhật preview với URL từ Cloudinary
-    imagePreview.value = response.data.imageUrl
-    
-    console.log('✅ Upload thành công:', response.data.imageUrl)
-  } catch (error) {
-    console.error('❌ Lỗi khi upload:', error)
-    imageError.value = true
-    alert('Không thể upload ảnh: ' + (error.response?.data?.error || error.message))
-  }
-}
-
-const removeImage = () => {
-  form.value.imageUrl = ''
-  imagePreview.value = ''
-  imageError.value = false
-  if (fileInput.value) {
-    fileInput.value.value = ''
+const closeModal = () => {
+  showCreateModal.value = false
+  showEditModal.value = false
+  form.value = {
+    id: null,
+    name: '',
+    description: '',
+    price: 0,
+    stock: 0,
+    categoryId: '',
+    imageUrls: [],
+    isActive: true
   }
 }
 
@@ -518,27 +407,6 @@ const deleteProduct = async (id) => {
   } catch (error) {
     console.error('Lỗi khi xóa sản phẩm:', error)
     alert('Không thể xóa sản phẩm!')
-  }
-}
-
-const closeModal = () => {
-  showCreateModal.value = false
-  showEditModal.value = false
-  imagePreview.value = ''
-  imageError.value = false
-  uploadMethod.value = 'file'
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
-  form.value = {
-    id: null,
-    name: '',
-    description: '',
-    price: 0,
-    stock: 0,
-    categoryId: '',
-    imageUrl: '',
-    isActive: true
   }
 }
 
@@ -563,6 +431,15 @@ const getStockClass = (stock) => {
 const truncateText = (text, length) => {
   if (!text) return ''
   return text.length > length ? text.substring(0, length) + '...' : text
+}
+
+const getProductImage = (product) => {
+  // Ưu tiên lấy từ images array
+  if (product.images && product.images.length > 0) {
+    return product.images[0].imageUrl
+  }
+  // Fallback sang imageUrl cũ
+  return product.imageUrl || 'https://via.placeholder.com/100?text=No+Image'
 }
 
 const handleLogout = () => {

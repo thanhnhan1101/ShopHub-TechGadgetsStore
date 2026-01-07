@@ -19,7 +19,7 @@
       <div class="cart-items">
         <div v-for="item in cartStore.items" :key="item.id" class="cart-item">
           <div class="item-image">
-            <img v-if="item.product?.imageUrl" :src="item.product.imageUrl" :alt="item.product?.name" />
+            <img v-if="getProductImage(item.product)" :src="getProductImage(item.product)" :alt="item.product?.name" />
             <div v-else class="placeholder">📱</div>
           </div>
 
@@ -143,6 +143,16 @@ export default {
       }).format(price)
     }
 
+    const getProductImage = (product) => {
+      if (!product) return null
+      // Ưu tiên lấy từ images array
+      if (product.images && product.images.length > 0) {
+        return product.images[0].imageUrl
+      }
+      // Fallback sang imageUrl cũ
+      return product.imageUrl || null
+    }
+
     onMounted(() => {
       cartStore.fetchCart()
     })
@@ -154,7 +164,8 @@ export default {
       removeItem,
       goToCheckout,
       goToShop,
-      formatPrice
+      formatPrice,
+      getProductImage
     }
   } // Đóng setup()
 } // Đóng export default

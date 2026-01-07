@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "PRODUCTS", indexes = {
@@ -37,6 +39,10 @@ public class Product {
 
     @Column(name = "IMAGE_URL", columnDefinition = "NVARCHAR(MAX)")
     private String imageUrl;
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("displayOrder ASC")
+    private List<ProductImage> images = new ArrayList<>();
 
     @Column(name = "IS_ACTIVE", nullable = false)
     private Boolean isActive = true;
@@ -147,5 +153,41 @@ public class Product {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public List<ProductImage> getImages() {
+        return images;
+    }
+
+    public void setImages(List<ProductImage> images) {
+        this.images = images;
+    }
+
+    // Helper methods for managing images
+    public void addImage(ProductImage image) {
+        images.add(image);
+        image.setProduct(this);
+    }
+
+    public void removeImage(ProductImage image) {
+        images.remove(image);
+        image.setProduct(null);
+    }
+
+    public void clearImages() {
+        images.forEach(image -> image.setProduct(null));
+        images.clear();
+    }
+
+    // Get primary image URL (for backward compatibility)
+    public String getPrimaryImageUrl() {
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            return imageUrl;
+        }
+        return images.stream()
+                .filter(ProductImage::getIsPrimary)
+                .findFirst()
+                .map(ProductImage::getImageUrl)
+                .orElse(images.isEmpty() ? null : images.get(0).getImageUrl());
     }
 }
