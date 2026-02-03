@@ -53,6 +53,10 @@ public class SecurityConfig {
                         // Orders - require authentication (CUSTOMER or ADMIN)
                         .requestMatchers("/api/orders/**").authenticated()
                         
+                        // Reviews - GET public, POST require authentication
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/reviews/**").permitAll()
+                        .requestMatchers("/api/reviews/**").authenticated()
+                        
                         // Users - require ADMIN
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         

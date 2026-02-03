@@ -29,19 +29,52 @@
             <div class="image-badge out" v-if="product.stock === 0">
               ❌ Hết hàng
             </div>
+            
+            <!-- Navigation Arrows -->
+            <div v-if="productImages.length > 1" class="image-navigation">
+              <button class="nav-btn prev" @click="previousImage">
+                <span>‹</span>
+              </button>
+              <button class="nav-btn next" @click="nextImage">
+                <span>›</span>
+              </button>
+            </div>
+
+            <!-- Image Counter -->
+            <div v-if="productImages.length > 1" class="image-counter">
+              {{ currentImageIndex + 1 }} / {{ productImages.length }}
+            </div>
           </div>
 
           <!-- Thumbnail Gallery -->
-          <div v-if="productImages.length > 1" class="thumbnail-gallery">
-            <div 
-              v-for="(image, index) in productImages" 
-              :key="index"
-              class="thumbnail-item"
-              :class="{ active: currentImage === image }"
-              @click="currentImage = image"
+          <div v-if="productImages.length > 1" class="thumbnail-container">
+            <button 
+              v-if="canScrollLeft" 
+              class="thumbnail-nav-btn left" 
+              @click="scrollThumbnails('left')"
             >
-              <img :src="image" :alt="product.name + ' - ' + (index + 1)" />
+              ‹
+            </button>
+            
+            <div class="thumbnail-gallery" ref="thumbnailGalleryRef">
+              <div 
+                v-for="(image, index) in productImages" 
+                :key="index"
+                class="thumbnail-item"
+                :class="{ active: currentImageIndex === index }"
+                @click="selectImage(index)"
+              >
+                <img :src="image" :alt="product.name + ' - ' + (index + 1)" />
+              </div>
             </div>
+            
+            <button 
+              v-if="canScrollRight" 
+              class="thumbnail-nav-btn right" 
+              @click="scrollThumbnails('right')"
+            >
+              ›
+            </button>
           </div>
         </div>
 
@@ -126,6 +159,15 @@
           </div>
         </div>
       </div>
+
+      <!-- Review Section -->
+      <div class="reviews-section">
+        <ReviewList 
+          v-if="product"
+          :product-id="product.id"
+          ref="reviewListRef"
+        />
+      </div>
     </div>
 
     <div v-else class="not-found">
@@ -137,22 +179,34 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
+import { useNotification } from '../composables/useNotification'
 import api from '../services/api'
+import ReviewList from '../components/ReviewList.vue'
 
 export default {
   name: 'ProductDetail',
+  components: {
+    ReviewList
+  },
   setup() {
     const route = useRoute()
     const router = useRouter()
     const cartStore = useCartStore()
+    const { showNotification } = useNotification()
     
     const product = ref(null)
     const loading = ref(false)
     const quantity = ref(1)
     const currentImage = ref('')
+    const currentImageIndex = ref(0)
+    const reviewListRef = ref(null)
+    const thumbnailGalleryRef = ref(null)
+    const canScrollLeft = ref(false)
+    const canScrollRight = ref(false)
+    let autoPlayInterval = null
 
     // Computed: Lấy danh sách ảnh của sản phẩm
     const productImages = computed(() => {
@@ -207,13 +261,83 @@ export default {
         
         // Set ảnh đầu tiên làm ảnh hiện tại
         if (productImages.value.length > 0) {
+          currentImageIndex.value = 0
           currentImage.value = productImages.value[0]
+          
+          // Bắt đầu auto-play nếu có nhiều hơn 1 ảnh
+          if (productImages.value.length > 1) {
+            startAutoPlay()
+            // Check scroll buttons sau khi DOM update
+            setTimeout(checkScrollButtons, 100)
+          }
         }
       } catch (error) {
         console.error('Error fetching product:', error)
       } finally {
         loading.value = false
       }
+    }
+
+    const startAutoPlay = () => {
+      stopAutoPlay() // Clear existing interval nếu có
+      autoPlayInterval = setInterval(() => {
+        nextImage()
+      }, 4000) // 3 giây
+    }
+
+    const stopAutoPlay = () => {
+      if (autoPlayInterval) {
+        clearInterval(autoPlayInterval)
+        autoPlayInterval = null
+      }
+    }
+
+    const selectImage = (index) => {
+      currentImageIndex.value = index
+      currentImage.value = productImages.value[index]
+      // Reset auto-play khi user click vào thumbnail
+      if (productImages.value.length > 1) {
+        startAutoPlay()
+      }
+    }
+
+    const nextImage = () => {
+      if (productImages.value.length === 0) return
+      currentImageIndex.value = (currentImageIndex.value + 1) % productImages.value.length
+      currentImage.value = productImages.value[currentImageIndex.value]
+    }
+
+    const previousImage = () => {
+      if (productImages.value.length === 0) return
+      currentImageIndex.value = currentImageIndex.value === 0 
+        ? productImages.value.length - 1 
+        : currentImageIndex.value - 1
+      currentImage.value = productImages.value[currentImageIndex.value]
+      // Reset auto-play khi user click nút điều hướng
+      if (productImages.value.length > 1) {
+        startAutoPlay()
+      }
+    }
+
+    const checkScrollButtons = () => {
+      if (!thumbnailGalleryRef.value) return
+      const gallery = thumbnailGalleryRef.value
+      canScrollLeft.value = gallery.scrollLeft > 0
+      canScrollRight.value = gallery.scrollLeft < (gallery.scrollWidth - gallery.clientWidth - 1)
+    }
+
+    const scrollThumbnails = (direction) => {
+      if (!thumbnailGalleryRef.value) return
+      const gallery = thumbnailGalleryRef.value
+      const scrollAmount = 200
+      
+      if (direction === 'left') {
+        gallery.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
+      } else {
+        gallery.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+      }
+      
+      setTimeout(checkScrollButtons, 300)
     }
 
     const increaseQuantity = () => {
@@ -231,10 +355,10 @@ export default {
     const addToCart = async () => {
       try {
         await cartStore.addToCart(product.value, quantity.value)
-        alert(`Added ${quantity.value} item(s) to cart!`)
+        showNotification(`Đã thêm ${quantity.value} sản phẩm vào giỏ hàng!`, 'success')
         quantity.value = 1
       } catch (error) {
-        alert('Failed to add to cart')
+        showNotification('Không thể thêm vào giỏ hàng', 'error')
       }
     }
 
@@ -246,11 +370,16 @@ export default {
       fetchProduct()
     })
 
+    onUnmounted(() => {
+      stopAutoPlay()
+    })
+
     return {
       product,
       loading,
       quantity,
       currentImage,
+      currentImageIndex,
       productImages,
       stockClass,
       stockText,
@@ -259,7 +388,15 @@ export default {
       increaseQuantity,
       decreaseQuantity,
       addToCart,
-      goBack
+      goBack,
+      selectImage,
+      nextImage,
+      previousImage,
+      reviewListRef,
+      thumbnailGalleryRef,
+      canScrollLeft,
+      canScrollRight,
+      scrollThumbnails
     }
   }
 }
@@ -416,15 +553,32 @@ export default {
   50% { transform: scale(1.05); }
 }
 
-.thumbnail-gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 10px;
+.thumbnail-container {
+  position: relative;
   margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thumbnail-gallery {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1;
+}
+
+.thumbnail-gallery::-webkit-scrollbar {
+  display: none;
 }
 
 .thumbnail-item {
-  aspect-ratio: 1;
+  flex: 0 0 80px;
+  width: 80px;
+  height: 80px;
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
@@ -447,6 +601,95 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.thumbnail-nav-btn {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #667eea;
+  color: #667eea;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+
+.thumbnail-nav-btn:hover {
+  background: #667eea;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.thumbnail-nav-btn:active {
+  transform: scale(0.95);
+}
+
+.image-navigation {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  padding: 0 15px;
+  pointer-events: none;
+}
+
+.nav-btn {
+  pointer-events: all;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid #667eea;
+  color: #667eea;
+  font-size: 32px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.nav-btn:hover {
+  background: #667eea;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.nav-btn:active {
+  transform: scale(0.95);
+}
+
+.nav-btn span {
+  line-height: 1;
+  display: block;
+}
+
+.image-counter {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
 }
 
 .info-section {
@@ -748,6 +991,13 @@ export default {
 .not-found h2 {
   color: #2d3748;
   margin-bottom: 25px;
+}
+
+/* Reviews Section */
+.reviews-section {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 20px;
 }
 
 @media (max-width: 992px) {

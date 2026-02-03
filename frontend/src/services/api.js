@@ -184,5 +184,24 @@ export default {
   },
   deleteUser(id) {
     return api.delete(`/users/${id}`)
+  },
+
+  // Reviews
+  createReview(reviewData) {
+    return api.post('/reviews', reviewData).then(res => res.data)
+  },
+  getProductReviews(productId) {
+    return api.get(`/reviews/product/${productId}`).then(res => res.data)
+  },
+  getProductReviewStats(productId) {
+    return api.get(`/reviews/product/${productId}/stats`).then(res => res.data)
+  },
+  canUserReview(productId, orderId) {
+    return api.get('/reviews/can-review', { 
+      params: { productId, orderId } 
+    }).then(res => res.data)
+  },
+  getMyReviews() {
+    return api.get('/reviews/my-reviews').then(res => res.data)
   }
 }

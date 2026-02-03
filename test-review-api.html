@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Review API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        .error {
+            border-left-color: #e74c3c;
+            background: #fee;
+        }
+        .success {
+            border-left-color: #27ae60;
+            background: #efe;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .product-select {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            margin: 10px 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Review API - ShopHub</h1>
+        
+        <div class="test-section">
+            <h2>1. Chọn sản phẩm để test</h2>
+            <select id="productSelect" class="product-select">
+                <option value="1">Product ID: 1 (iPhone 15 Pro Max)</option>
+                <option value="2">Product ID: 2 (Samsung Galaxy S24 Ultra)</option>
+                <option value="3">Product ID: 3 (MacBook Pro M3)</option>
+                <option value="4">Product ID: 4 (Dell XPS 15)</option>
+                <option value="5">Product ID: 5 (iPad Pro 12.9)</option>
+            </select>
+        </div>
+
+        <div class="test-section">
+            <h2>2. Test API Endpoints</h2>
+            <button onclick="testGetReviews()">📋 Get Reviews</button>
+            <button onclick="testGetStats()">📊 Get Review Stats</button>
+            <button onclick="testBoth()">🚀 Test Both</button>
+            <div id="result1" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. Kiểm tra Backend Status</h2>
+            <button onclick="checkBackend()">🔍 Check Backend</button>
+            <div id="result2" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. Console Log</h2>
+            <p style="color: #666;">Mở Developer Tools (F12) để xem chi tiết</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+
+        function getProductId() {
+            return document.getElementById('productSelect').value;
+        }
+
+        async function testGetReviews() {
+            const productId = getProductId();
+            const resultDiv = document.getElementById('result1');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>⏳ Đang tải reviews...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/reviews/product/${productId}`);
+                const data = await response.json();
+                
+                console.log('Reviews Response:', data);
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <h3>✅ Success - Reviews for Product ${productId}</h3>
+                    <p><strong>Total Reviews:</strong> ${data.length}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                    <p>Kiểm tra xem backend có đang chạy không tại: ${API_BASE}</p>
+                `;
+            }
+        }
+
+        async function testGetStats() {
+            const productId = getProductId();
+            const resultDiv = document.getElementById('result1');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>⏳ Đang tải stats...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/reviews/product/${productId}/stats`);
+                const data = await response.json();
+                
+                console.log('Stats Response:', data);
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <h3>✅ Success - Stats for Product ${productId}</h3>
+                    <p><strong>Average Rating:</strong> ${data.averageRating.toFixed(1)} ⭐</p>
+                    <p><strong>Total Reviews:</strong> ${data.totalReviews}</p>
+                    <h4>Rating Distribution:</h4>
+                    <ul>
+                        <li>5 ⭐: ${data.ratingDistribution[5] || 0} reviews</li>
+                        <li>4 ⭐: ${data.ratingDistribution[4] || 0} reviews</li>
+                        <li>3 ⭐: ${data.ratingDistribution[3] || 0} reviews</li>
+                        <li>2 ⭐: ${data.ratingDistribution[2] || 0} reviews</li>
+                        <li>1 ⭐: ${data.ratingDistribution[1] || 0} reviews</li>
+                    </ul>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        async function testBoth() {
+            const productId = getProductId();
+            const resultDiv = document.getElementById('result1');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>⏳ Đang test cả 2 endpoints...</p>';
+
+            try {
+                const [reviewsRes, statsRes] = await Promise.all([
+                    fetch(`${API_BASE}/reviews/product/${productId}`),
+                    fetch(`${API_BASE}/reviews/product/${productId}/stats`)
+                ]);
+
+                const reviews = await reviewsRes.json();
+                const stats = await statsRes.json();
+                
+                console.log('Reviews:', reviews);
+                console.log('Stats:', stats);
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <h3>✅ Success - Product ${productId}</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4>📋 Reviews (${reviews.length})</h4>
+                            <pre>${JSON.stringify(reviews, null, 2)}</pre>
+                        </div>
+                        <div>
+                            <h4>📊 Stats</h4>
+                            <p><strong>Average:</strong> ${stats.averageRating.toFixed(1)} ⭐</p>
+                            <p><strong>Total:</strong> ${stats.totalReviews}</p>
+                            <pre>${JSON.stringify(stats, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        async function checkBackend() {
+            const resultDiv = document.getElementById('result2');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>⏳ Đang kiểm tra backend...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/products`);
+                
+                if (response.ok) {
+                    const products = await response.json();
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Backend is Running!</h3>
+                        <p>URL: ${API_BASE}</p>
+                        <p>Total Products: ${products.length}</p>
+                        <p>Status: ${response.status} ${response.statusText}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>⚠️ Backend responded but with error</h3>
+                        <p>Status: ${response.status} ${response.statusText}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Cannot connect to backend</h3>
+                    <p>Error: ${error.message}</p>
+                    <p>Make sure backend is running at: ${API_BASE}</p>
+                    <h4>To start backend:</h4>
+                    <pre>cd backend
+mvn spring-boot:run</pre>
+                `;
+            }
+        }
+
+        // Auto check backend on load
+        window.addEventListener('load', () => {
+            console.log('🚀 Review API Test Tool Loaded');
+            console.log('API Base:', API_BASE);
+        });
+    </script>
+</body>
+</html>
